@@ -26,19 +26,21 @@ export default function SubscribersClient() {
     return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('scroll', close, true); };
   }, [menuId]);
 
+  const LIMIT = 200; // cap rendered rows for performance with large data
+
   const fetchSubscribers = useCallback(async () => {
     setLoading(true);
     try {
-      const all = await db.subscribers.orderBy('createdAt').reverse().toArray();
       const q = search.trim().toLowerCase();
+      const all = await db.subscribers.orderBy('createdAt').reverse().toArray();
       const filtered = q
         ? all.filter(s =>
             s.subscriberName.toLowerCase().includes(q) ||
             s.subscriberNumber.toLowerCase().includes(q) ||
             s.meterNumber.toLowerCase().includes(q))
         : all;
-      setSubscribers(filtered);
       setTotal(filtered.length);
+      setSubscribers(filtered.slice(0, LIMIT));
     } catch (err) {
       console.error(err);
     } finally {
@@ -46,7 +48,11 @@ export default function SubscribersClient() {
     }
   }, [search]);
 
-  useEffect(() => { fetchSubscribers(); }, [fetchSubscribers]);
+  // debounce search input to avoid re-querying on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => { fetchSubscribers(); }, search ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [fetchSubscribers, search]);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';

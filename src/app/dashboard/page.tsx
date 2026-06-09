@@ -11,27 +11,32 @@ export default function DashboardPage() {
 
   useEffect(() => {
     (async () => {
-      const subs = await db.subscribers.toArray();
-      const invoices = await db.invoices.toArray();
-      const active = subs.filter(s => s.status === 'active').length;
-      const issued = invoices.filter(i => i.status === 'issued');
-      const draft = invoices.filter(i => i.status === 'draft').length;
-      const revenue = issued.reduce((sum, i) => sum + (i.netDue || 0), 0);
-      setStats({ subs: subs.length, active, invoices: invoices.length, issued: issued.length, draft, revenue });
+      // Use indexed counts where possible (fast even with many rows).
+      const [subsTotal, activeCount, invTotal, issuedCount, draftCount] = await Promise.all([
+        db.subscribers.count(),
+        db.subscribers.where('status').equals('active').count(),
+        db.invoices.count(),
+        db.invoices.where('status').equals('issued').count(),
+        db.invoices.where('status').equals('draft').count(),
+      ]);
 
-      // last 7 days buckets
-      const buckets: { label: string; total: number }[] = [];
+      // Revenue + 7-day chart: only scan issued invoices from the last 7 days.
       const now = new Date();
+      const buckets: { label: string; total: number }[] = [];
       for (let i = 6; i >= 0; i--) {
         const d = new Date(now); d.setDate(now.getDate() - i);
         buckets.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, total: 0 });
       }
-      invoices.forEach(inv => {
+      const issuedInvoices = await db.invoices.where('status').equals('issued').toArray();
+      let revenue = 0;
+      for (const inv of issuedInvoices) {
+        revenue += inv.netDue || 0;
         const d = new Date(inv.createdAt);
         const key = `${d.getMonth() + 1}/${d.getDate()}`;
         const b = buckets.find(x => x.label === key);
         if (b) b.total += inv.netDue || 0;
-      });
+      }
+      setStats({ subs: subsTotal, active: activeCount, invoices: invTotal, issued: issuedCount, draft: draftCount, revenue });
       setChart(buckets);
     })();
   }, []);
