@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 @layer base {
-  body {
+  html, body {
     font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  * {
+    box-sizing: border-box;
   }
 }
 

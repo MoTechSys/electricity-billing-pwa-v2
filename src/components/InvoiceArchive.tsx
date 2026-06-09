@@ -83,7 +83,7 @@ export default function InvoiceArchive() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[600px]">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">رقم الفاتورة</th>

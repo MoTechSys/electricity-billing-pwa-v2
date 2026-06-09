@@ -31,14 +31,14 @@ export default function AppShell({ children, user }: { children: React.ReactNode
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex w-full max-w-full overflow-x-hidden">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed lg:static inset-y-0 right-0 z-50 w-64 bg-gradient-to-b from-blue-900 to-indigo-900 text-white transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+      <aside className={`fixed md:static inset-y-0 right-0 z-50 w-64 max-w-[80vw] shrink-0 bg-gradient-to-b from-blue-900 to-indigo-900 text-white transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
         <div className="p-4 border-b border-blue-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-lg">⚡</div>
@@ -79,12 +79,12 @@ export default function AppShell({ children, user }: { children: React.ReactNode
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-h-screen">
+      <main className="flex-1 min-w-0 min-h-screen w-full">
         {/* Top bar */}
         <header className="bg-white shadow-sm border-b p-4 flex items-center justify-between no-print">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
+            className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />

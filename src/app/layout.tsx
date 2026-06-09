@@ -1,18 +1,24 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
 export const metadata: Metadata = {
   title: "نظام فواتير الكهرباء",
   description: "نظام إدارة فواتير استهلاك الكهرباء - تطبيق ويب تقدمي PWA",
-  manifest: "/manifest.json",
-  themeColor: "#1e40af",
+  manifest: "/billing/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "فواتير الكهرباء",
+  },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5,
+  themeColor: "#1e40af",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -23,12 +29,10 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <head>
-        <link rel="icon" href="/icons/icon-192.png" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="icon" href="/billing/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/billing/icons/icon-192.png" />
       </head>
-      <body className="bg-gray-50 text-gray-900 antialiased">
+      <body className="bg-gray-50 text-gray-900 antialiased overflow-x-hidden">
         <ServiceWorkerRegistration />
         {children}
       </body>

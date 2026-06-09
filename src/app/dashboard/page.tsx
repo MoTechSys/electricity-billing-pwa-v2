@@ -35,8 +35,8 @@ export default async function DashboardPage() {
   return (
     <AppShell user={user}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">لوحة التحكم</h1>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">لوحة التحكم</h1>
           <Link
             href="/invoices/new"
             className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition text-sm"
@@ -46,7 +46,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           {stats.map((stat) => (
             <div key={stat.label} className="bg-white rounded-xl shadow-sm border p-4">
               <div className="flex items-center gap-3 mb-2">
@@ -86,7 +86,7 @@ export default async function DashboardPage() {
             <Link href="/invoices/archive" className="text-blue-600 text-sm hover:underline">عرض الكل</Link>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[600px]">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-right p-3 text-sm font-semibold text-gray-600">رقم الفاتورة</th>
