@@ -83,17 +83,17 @@ export default function InvoiceArchive() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px]">
+          <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">رقم الفاتورة</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">الدورة</th>
+                <th className="text-right p-3 text-sm font-semibold text-gray-600 hidden sm:table-cell">الدورة</th>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">المشترك</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">الفترة</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">الاستهلاك</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">المبلغ المستحق</th>
+                <th className="text-right p-3 text-sm font-semibold text-gray-600 hidden md:table-cell">الفترة</th>
+                <th className="text-right p-3 text-sm font-semibold text-gray-600 hidden md:table-cell">الاستهلاك</th>
+                <th className="text-right p-3 text-sm font-semibold text-gray-600">المبلغ</th>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">الحالة</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">إجراءات</th>
+                <th className="text-center p-3 text-sm font-semibold text-gray-600 w-12"></th>
               </tr>
             </thead>
             <tbody>
@@ -107,23 +107,24 @@ export default function InvoiceArchive() {
                   return (
                     <tr key={inv.id} className="border-t hover:bg-gray-50">
                       <td className="p-3 text-sm font-mono">{inv.invoiceNumber}</td>
-                      <td className="p-3 text-sm text-center">{inv.cycleNumber || '-'}</td>
+                      <td className="p-3 text-sm text-center hidden sm:table-cell">{inv.cycleNumber || '-'}</td>
                       <td className="p-3 text-sm">
                         <div className="font-medium">{inv.subscriber.subscriberName}</div>
                         <div className="text-xs text-gray-500">{inv.subscriber.subscriberNumber}</div>
                       </td>
-                      <td className="p-3 text-sm">{inv.periodFrom} - {inv.periodTo}</td>
-                      <td className="p-3 text-sm" dir="ltr">{inv.consumptionKwh.toLocaleString()} k.w</td>
-                      <td className="p-3 text-sm font-bold">{inv.netDue.toLocaleString()} {inv.currency}</td>
+                      <td className="p-3 text-sm hidden md:table-cell">{inv.periodFrom} - {inv.periodTo}</td>
+                      <td className="p-3 text-sm hidden md:table-cell" dir="ltr">{inv.consumptionKwh.toLocaleString()} k.w</td>
+                      <td className="p-3 text-sm font-bold whitespace-nowrap">{inv.netDue.toLocaleString()} {inv.currency}</td>
                       <td className="p-3 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${st.cls}`}>{st.text}</span>
                       </td>
-                      <td className="p-3 text-sm">
+                      <td className="p-3 text-sm text-center">
                         <button
                           onClick={() => router.push(`/invoices/${inv.id}/print`)}
-                          className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-100 inline-block"
+                          aria-label="عرض / طباعة"
+                          className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100"
                         >
-                          📥 عرض/طباعة
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" strokeLinejoin="round"/></svg>
                         </button>
                       </td>
                     </tr>
