@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { IconUserPlus } from '@/components/Icons';
 
 interface Subscriber {
   id: string;
@@ -35,10 +34,7 @@ export default function InvoiceForm() {
   const [success, setSuccess] = useState('');
   const [createdInvoiceId, setCreatedInvoiceId] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [showNewSub, setShowNewSub] = useState(false);
   const [lastReadingNote, setLastReadingNote] = useState('');
-  const [newSub, setNewSub] = useState({ subscriberNumber: '', subscriberName: '', meterNumber: '', routeNumber: '', cabinName: '' });
-  const [savingNewSub, setSavingNewSub] = useState(false);
 
   const [form, setForm] = useState({
     cycleNumber: '',
@@ -106,33 +102,6 @@ export default function InvoiceForm() {
       fetchSub();
     }
   }, [preselectedId]);
-
-  // Create new subscriber inline (fast modal)
-  const handleCreateNewSub = async () => {
-    if (!newSub.subscriberName || !newSub.meterNumber || !newSub.subscriberNumber) {
-      setError('يرجى تعبئة رقم المشترك والاسم ورقم العداد');
-      return;
-    }
-    setSavingNewSub(true);
-    setError('');
-    try {
-      const res = await fetch('/billing/api/subscribers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSub),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || 'خطأ في إضافة المشترك'); return; }
-      const created = data.subscriber;
-      setShowNewSub(false);
-      setNewSub({ subscriberNumber: '', subscriberName: '', meterNumber: '', routeNumber: '', cabinName: '' });
-      if (created) await selectSubscriber(created);
-    } catch {
-      setError('خطأ في الاتصال بالخادم');
-    } finally {
-      setSavingNewSub(false);
-    }
-  };
 
   // Load default unit price from settings
   useEffect(() => {
@@ -239,43 +208,33 @@ export default function InvoiceForm() {
       <h1 className="text-2xl font-bold text-gray-800">إصدار فاتورة جديدة</h1>
 
       {/* Section 1: Subscriber Selection */}
-      <div className="bg-white rounded-xl shadow-sm border p-5">
-        <h2 className="text-lg font-bold text-gray-700 mb-4">📋 بيانات المشترك</h2>
+      <div className="bg-white rounded-xl shadow-sm border p-3.5">
+        <h2 className="text-sm font-bold text-gray-600 mb-2.5">📋 بيانات المشترك</h2>
 
         {!selectedSub ? (
-          <div className="flex gap-2 items-start">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
-                onFocus={() => setShowDropdown(true)}
-                placeholder="اختر العميل: ابحث بالاسم أو الرقم..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition outline-none"
-              />
-              {showDropdown && subscribers.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                  {subscribers.map((sub) => (
-                    <button
-                      key={sub.id}
-                      onClick={() => selectSubscriber(sub)}
-                      className="w-full text-right p-3 hover:bg-blue-50 border-b last:border-0 transition"
-                    >
-                      <div className="font-medium text-sm">{sub.subscriberName}</div>
-                      <div className="text-xs text-gray-500">رقم المشترك: {sub.subscriberNumber} | العداد: {sub.meterNumber}</div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => { setShowNewSub(true); setError(''); }}
-              className="btn-luxe btn-gold whitespace-nowrap shrink-0"
-              title="إضافة عميل جديد"
-            >
-              <IconUserPlus className="w-5 h-5" /> عميل جديد
-            </button>
+          <div className="relative">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="اختر العميل: ابحث بالاسم أو الرقم..."
+              className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition outline-none"
+            />
+            {showDropdown && subscribers.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                {subscribers.map((sub) => (
+                  <button
+                    key={sub.id}
+                    onClick={() => selectSubscriber(sub)}
+                    className="w-full text-right p-3 hover:bg-blue-50 border-b last:border-0 transition"
+                  >
+                    <div className="font-medium text-sm">{sub.subscriberName}</div>
+                    <div className="text-xs text-gray-500">رقم المشترك: {sub.subscriberNumber} | العداد: {sub.meterNumber}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-blue-50 rounded-xl p-4">
@@ -296,7 +255,7 @@ export default function InvoiceForm() {
       {/* Section 2: Invoice Data */}
       <div className="bg-white rounded-xl shadow-sm border p-5">
         <h2 className="text-lg font-bold text-gray-700 mb-4">📊 بيانات الفاتورة</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">الفترة من <span className="text-red-500">*</span></label>
             <input type="date" name="periodFrom" value={form.periodFrom} onChange={handleChange} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition outline-none text-sm" dir="ltr" />
@@ -427,45 +386,6 @@ export default function InvoiceForm() {
         </div>
       )}
 
-      {/* New subscriber modal */}
-      {showNewSub && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowNewSub(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><IconUserPlus className="w-5 h-5 text-blue-600" /> عميل جديد</h3>
-              <button onClick={() => setShowNewSub(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">رقم المشترك <span className="text-red-500">*</span></label>
-                <input value={newSub.subscriberNumber} onChange={(e) => setNewSub({ ...newSub, subscriberNumber: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">الاسم <span className="text-red-500">*</span></label>
-                <input value={newSub.subscriberName} onChange={(e) => setNewSub({ ...newSub, subscriberName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">رقم العداد <span className="text-red-500">*</span></label>
-                <input value={newSub.meterNumber} onChange={(e) => setNewSub({ ...newSub, meterNumber: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">خط السير</label>
-                <input value={newSub.routeNumber} onChange={(e) => setNewSub({ ...newSub, routeNumber: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" dir="ltr" />
-              </div>
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">الكبينة</label>
-                <input value={newSub.cabinName} onChange={(e) => setNewSub({ ...newSub, cabinName: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm" />
-              </div>
-            </div>
-            <div className="flex gap-3 mt-5">
-              <button onClick={handleCreateNewSub} disabled={savingNewSub} className="btn-luxe btn-gold text-sm flex-1">
-                {savingNewSub ? 'جاري الحفظ...' : 'حفظ واختيار'}
-              </button>
-              <button onClick={() => setShowNewSub(false)} className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl font-bold hover:bg-gray-200 transition text-sm">إلغاء</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
