@@ -40,7 +40,6 @@ export default function InvoicePrintPage() {
   const [subscriber, setSubscriber] = useState<Subscriber | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<'' | 'pdf' | 'share'>('');
   const [copied, setCopied] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef<HTMLDivElement>(null);
@@ -91,60 +90,6 @@ export default function InvoicePrintPage() {
   const title = settings.invoice_title || 'فاتورة استهلاك كهرباء';
   const footerNote = settings.footer_note || 'ملاحظة: المحطة غير مسؤولة عن تسليم أي مبلغ بدون سند رسمي';
   const invDisplay = invoice.invoiceNumber.replace(/^INV-\d{4}-\d{2}-/, '') || invoice.invoiceNumber;
-  const fileName = `فاتورة-${invDisplay}.pdf`;
-
-  // Render the invoice to a single full A4-landscape PDF page.
-  // We clone the invoice off-screen at a FIXED A4-landscape pixel box
-  // (1123x794 @96dpi) so RTL/scroll/clip on the live page can't distort it.
-  async function buildPdfBlob(): Promise<Blob> {
-    const src = invoiceRef.current!;
-    const [{ toJpeg }, jspdfMod] = await Promise.all([
-      import('html-to-image'),
-      import('jspdf'),
-    ]);
-    const JsPDF = jspdfMod.jsPDF;
-
-    const A4W = 1123; // 297mm @96dpi
-    const A4H = 794;  // 210mm @96dpi
-
-    const clone = src.cloneNode(true) as HTMLElement;
-    clone.style.transform = 'none';
-    clone.style.margin = '0';
-    clone.style.width = A4W + 'px';
-    clone.style.height = A4H + 'px';
-    clone.style.minHeight = A4H + 'px';
-    clone.style.borderRadius = '0';
-    clone.style.border = 'none';
-    clone.style.boxSizing = 'border-box';
-
-    const holder = document.createElement('div');
-    holder.style.position = 'fixed';
-    holder.style.top = '0';
-    holder.style.left = '-100000px'; // off-screen
-    holder.style.width = A4W + 'px';
-    holder.style.height = A4H + 'px';
-    holder.style.background = '#ffffff';
-    holder.setAttribute('dir', 'rtl');
-    holder.appendChild(clone);
-    document.body.appendChild(holder);
-
-    try {
-      // JPEG @ quality 0.85 + pixelRatio 1.5 keeps the file small (<1MB) and crisp.
-      const dataUrl = await toJpeg(clone, {
-        backgroundColor: '#ffffff',
-        width: A4W,
-        height: A4H,
-        pixelRatio: 1.5,
-        quality: 0.85,
-        cacheBust: true,
-      });
-      const pdf = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
-      pdf.addImage(dataUrl, 'JPEG', 0, 0, 297, 210);
-      return pdf.output('blob');
-    } finally {
-      document.body.removeChild(holder);
-    }
-  }
 
   function buildCopyText(): string {
     return [
@@ -178,7 +123,11 @@ export default function InvoicePrintPage() {
   // Used for printing in a clean window (text stays selectable -> real text PDF,
   // not an image). Avoids the PWA shell / service-worker quirks that produced
   // a blank print on some phones.
-  function buildStandaloneHtml(): string {
+  // One reliable path for a REAL TEXT PDF (selectable/copyable, Arabic correct):
+  // open a clean standalone window and let the browser print -> "Save as PDF".
+  // jsPDF/html-to-image/jsPDF.html() all rasterize Arabic to an image, so the
+  // browser's own print engine is the only thing that yields true Arabic text.
+  function buildStandaloneHtml(banner: string): string {
     const inv = invoiceRef.current!;
     const invoiceHtml = inv.outerHTML;
     return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
@@ -189,55 +138,39 @@ export default function InvoicePrintPage() {
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
   html,body{ margin:0; padding:0; font-family:'Cairo','Tahoma',sans-serif; background:#fff; }
   ${INVOICE_CSS}
-  /* override on-screen scaling for this print-only document */
   .invoice{ transform:none !important; border:none !important; border-radius:0 !important; margin:0 auto !important; }
   @page { size: 297mm 210mm; margin: 0; }
-  @media screen { body{ background:#e8e8e8; padding:16px; } .invoice{ box-shadow:0 4px 24px rgba(0,0,0,.2); } }
+  .pbar{ position:sticky; top:0; z-index:10; background:#0f1941; color:#fff; padding:12px; text-align:center; font-family:'Cairo',sans-serif; font-weight:700; }
+  .pbar button{ font-family:'Cairo',sans-serif; font-weight:800; border:none; border-radius:10px; padding:10px 22px; font-size:15px; cursor:pointer; background:linear-gradient(180deg,#f0d066,#d4af37,#b8941f); color:#2a2102; }
+  @media screen { body{ background:#e8e8e8; } .invoice{ box-shadow:0 4px 24px rgba(0,0,0,.2); margin:16px auto !important; } }
+  @media print { .pbar{ display:none !important; } }
 </style></head>
-<body>${invoiceHtml}
+<body>
+<div class="pbar">${banner}<br><button onclick="window.print()">📄 حفظ / طباعة PDF</button></div>
+${invoiceHtml}
 <script>
   function go(){ window.focus(); window.print(); }
-  if (document.readyState === 'complete') { setTimeout(go, 350); }
-  else { window.addEventListener('load', function(){ setTimeout(go, 350); }); }
-  window.addEventListener('afterprint', function(){ /* keep window so mobile can save */ });
+  if (document.readyState === 'complete') { setTimeout(go, 450); }
+  else { window.addEventListener('load', function(){ setTimeout(go, 450); }); }
 <\/script>
 </body></html>`;
   }
 
-  function handlePrint() {
-    const html = buildStandaloneHtml();
+  function openPrintWindow(banner: string) {
+    const html = buildStandaloneHtml(banner);
     const w = window.open('', '_blank');
-    if (!w) {
-      // popup blocked -> fall back to in-page print
-      window.print();
-      return;
-    }
+    if (!w) { window.print(); return; }
     w.document.open();
     w.document.write(html);
     w.document.close();
   }
 
-  async function handleShare() {
-    try {
-      setBusy('share');
-      const blob = await buildPdfBlob();
-      const file = new File([blob], fileName, { type: 'application/pdf' });
-      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-      if (typeof nav.share === 'function' && nav.canShare && nav.canShare({ files: [file] })) {
-        await nav.share({ files: [file], title: `فاتورة ${invDisplay}` });
-      } else {
-        // Desktop / no file-share support: download the PDF so the user can attach it.
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-      }
-    } catch (e) {
-      console.error(e); // user-cancel or failure -> silent
-    } finally {
-      setBusy('');
-    }
+  function handlePrint() {
+    openPrintWindow('اختر الوجهة «حفظ كـ PDF» للحصول على ملف نصي');
+  }
+
+  function handleShare() {
+    openPrintWindow('اختر «حفظ كـ PDF» ثم شارك الملف عبر الواتساب أو أي تطبيق');
   }
 
   return (
@@ -273,10 +206,10 @@ export default function InvoicePrintPage() {
       `}</style>
 
       <div className="toolbar">
-        <button className="btn-print" onClick={handlePrint} disabled={busy !== ''}>📄 حفظ PDF / طباعة</button>
-        <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري التحضير' : '📤 مشاركة (صورة)'}</button>
-        <button className="btn-copy" onClick={handleCopy} disabled={busy !== ''}>{copied ? '✅ تم النسخ' : '📋 نسخ البيانات'}</button>
-        <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
+        <button className="btn-print" onClick={handlePrint}>📄 حفظ PDF / طباعة</button>
+        <button className="btn-share" onClick={handleShare}>📤 مشاركة PDF</button>
+        <button className="btn-copy" onClick={handleCopy}>{copied ? '✅ تم النسخ' : '📋 نسخ البيانات'}</button>
+        <button className="btn-back" onClick={() => router.back()}>رجوع</button>
       </div>
 
       <div className="invoice-scaler" ref={scalerRef}>
