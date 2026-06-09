@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { db, getSettings, Invoice, Subscriber } from '@/lib/db';
 
@@ -17,6 +17,32 @@ export default function InvoicePrintPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState(false);
+  const scalerRef = useRef<HTMLDivElement>(null);
+  const invoiceRef = useRef<HTMLDivElement>(null);
+
+  // Scale the fixed 297mm-wide invoice down to fit narrow screens,
+  // preserving the exact A4-landscape layout (no reflow/squish).
+  useEffect(() => {
+    function fit() {
+      const scaler = scalerRef.current;
+      const inv = invoiceRef.current;
+      if (!scaler || !inv) return;
+      // reset to measure natural size
+      inv.style.transform = 'scale(1)';
+      const natW = inv.offsetWidth;
+      const natH = inv.offsetHeight;
+      const avail = scaler.parentElement?.clientWidth || window.innerWidth;
+      const scale = Math.min(1, (avail - 4) / natW);
+      inv.style.transform = `scale(${scale})`;
+      // collapse the empty space left by the transform
+      scaler.style.width = natW * scale + 'px';
+      scaler.style.height = natH * scale + 'px';
+    }
+    fit();
+    window.addEventListener('resize', fit);
+    const t = setTimeout(fit, 300); // after fonts load
+    return () => { window.removeEventListener('resize', fit); clearTimeout(t); };
+  }, [loading, invoice, subscriber]);
 
   useEffect(() => {
     (async () => {
@@ -65,11 +91,14 @@ export default function InvoicePrintPage() {
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
       if (typeof (nav as Navigator).share === 'function') {
         try {
-          const node = document.querySelector('.invoice') as HTMLElement | null;
+          const node = invoiceRef.current;
           // Lazy-load html-to-image only when sharing an image
           if (node && nav.canShare) {
             const mod = await import('html-to-image');
-            const dataUrl = await mod.toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff' });
+            const prev = node.style.transform;
+            node.style.transform = 'scale(1)'; // capture at full A4 resolution
+            const dataUrl = await mod.toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff', width: node.offsetWidth, height: node.offsetHeight });
+            node.style.transform = prev; // restore on-screen scale
             const blob = await (await fetch(dataUrl)).blob();
             const file = new File([blob], `فاتورة-${invDisplay}.png`, { type: 'image/png' });
             if (nav.canShare({ files: [file] })) {
@@ -106,8 +135,10 @@ export default function InvoicePrintPage() {
         .btn-share { background:linear-gradient(180deg,#34d399,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(5,150,105,.5); }
         .btn-share:disabled { opacity:.6; cursor:default; }
         .btn-back { background:#fff; color:#333; border:1px solid #ddd; }
-        .invoice { width:297mm; min-height:200mm; max-width:100%; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:14mm 18mm; }
-        @media (max-width:1180px){ .invoice{ width:100%; padding:18px 16px; } }
+        /* Invoice ALWAYS keeps its A4-landscape proportions (297mm wide).
+           On small screens it is scaled down to fit, never reflowed/squished. */
+        .invoice-scaler { margin:0 auto; }
+        .invoice { width:297mm; min-height:200mm; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:14mm 18mm; transform-origin:top center; }
         .header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; margin-bottom:10px; border:1px solid #000; border-radius:10px; padding:14px 22px; }
         .company-name { text-align:right; font-weight:800; font-size:19px; line-height:1.45; }
         .logo { width:80px; height:80px; display:flex; align-items:center; justify-content:center; }
@@ -131,7 +162,8 @@ export default function InvoicePrintPage() {
           @page { size: A4 landscape; margin: 0; }
           .print-root { background:#fff; padding:0; }
           .toolbar { display:none !important; }
-          .invoice { border:1.5px solid #000; width:297mm; min-height:200mm; margin:0; padding:14mm 18mm; border-radius:0; }
+          .invoice-scaler { transform:none !important; width:auto !important; height:auto !important; }
+          .invoice { border:1.5px solid #000; width:297mm; min-height:200mm; margin:0; padding:14mm 18mm; border-radius:0; transform:none !important; }
         }
       `}</style>
 
@@ -141,7 +173,8 @@ export default function InvoicePrintPage() {
         <button className="btn-back" onClick={() => router.back()}>رجوع</button>
       </div>
 
-      <div className="invoice" dir="rtl">
+      <div className="invoice-scaler" ref={scalerRef}>
+      <div className="invoice" dir="rtl" ref={invoiceRef}>
         <div className="header">
           <div className="company-name">{company1}<br />{company2}</div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -196,6 +229,7 @@ export default function InvoicePrintPage() {
           <div className="accounts">الحسابات</div>
         </div>
         <div className="bottom-bar" />
+      </div>
       </div>
     </div>
   );
