@@ -96,11 +96,10 @@ export default function OnboardingGate({ children }: { children: React.ReactNode
         .gate-card{width:100%;max-width:420px;background:rgba(255,255,255,.06);backdrop-filter:blur(14px);
           border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:34px 26px;text-align:center;
           box-shadow:0 24px 60px -12px rgba(0,0,0,.55);}
-        .gate-logo{width:96px;height:96px;margin:0 auto 18px;border-radius:50%;background:#fff;
+        .gate-logo{width:120px;height:120px;margin:0 auto 18px;
           display:flex;align-items:center;justify-content:center;
-          box-shadow:inset 0 0 0 2px #fff, inset 0 0 0 5px #e7c65a, 0 8px 24px -6px rgba(231,198,90,.5);}
-        .gate-logo img{width:62px;height:62px;object-fit:contain;border-radius:50%;}
-        .gate-logo .bolt{font-size:40px;}
+          filter:drop-shadow(0 10px 24px rgba(0,0,0,.4));}
+        .gate-logo img{width:120px;height:120px;object-fit:contain;}
         .gate-title{color:#fff;font-weight:800;font-size:23px;margin:4px 0 6px;}
         .gate-sub{color:#aebbe6;font-size:14px;line-height:1.7;margin-bottom:24px;}
         .gate-btn{display:block;width:100%;border:none;border-radius:14px;padding:15px;font-family:inherit;
@@ -124,8 +123,8 @@ export default function OnboardingGate({ children }: { children: React.ReactNode
 
       <div className="gate-card">
         <div className="gate-logo">
-          {/* Replaced with real logo when provided */}
-          <span className="bolt">⚡</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icons/logo.png`} alt="شعار الشركة" />
         </div>
 
         {showInstallStep ? (

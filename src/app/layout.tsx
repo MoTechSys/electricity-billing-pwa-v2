@@ -20,7 +20,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
-  themeColor: "#1e40af",
+  themeColor: "#0f1941",
   viewportFit: "cover",
 };
 
@@ -33,7 +33,7 @@ export default function RootLayout({
     <html lang="ar" dir="rtl">
       <head>
         <link rel="icon" href={`${BP}/icons/icon-192.png`} />
-        <link rel="apple-touch-icon" href={`${BP}/icons/icon-192.png`} />
+        <link rel="apple-touch-icon" href={`${BP}/icons/apple-touch-icon.png`} />
       </head>
       <body className="bg-gray-50 text-gray-900 antialiased overflow-x-hidden">
         <ServiceWorkerRegistration />

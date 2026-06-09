@@ -23,10 +23,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden md:flex md:flex-col md:static inset-y-0 right-0 z-50 w-64 shrink-0 bg-gradient-to-b from-blue-900 to-indigo-900 text-white">
         <div className="p-4 border-b border-blue-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-lg">⚡</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icons/logo.png`} alt="الشعار" className="w-10 h-10 object-contain" />
             <div>
               <h2 className="font-bold text-sm">نظام فواتير الكهرباء</h2>
-              <p className="text-blue-200 text-xs">Motech</p>
+              <p className="text-blue-200 text-xs">Al-Abbasi</p>
             </div>
           </div>
         </div>
@@ -55,7 +56,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Top bar */}
         <header className="bg-white shadow-sm border-b p-4 flex items-center justify-between no-print">
           <div className="md:hidden flex items-center gap-2 font-extrabold text-gray-800">
-            <span className="text-xl">⚡</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icons/logo.png`} alt="الشعار" className="w-7 h-7 object-contain" />
             <span className="text-sm">فواتير الكهرباء</span>
           </div>
           <div className="text-sm text-gray-500">نظام الفواتير</div>

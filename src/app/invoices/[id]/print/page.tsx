@@ -110,8 +110,8 @@ export default function InvoicePrintPage() {
         @media (max-width:1180px){ .invoice{ width:100%; padding:18px 16px; } }
         .header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; margin-bottom:10px; border:1px solid #000; border-radius:10px; padding:14px 22px; }
         .company-name { text-align:right; font-weight:800; font-size:19px; line-height:1.45; }
-        .logo { width:70px; height:70px; border-radius:50%; background:#fff; border:3px solid #d5802b; box-shadow:inset 0 0 0 1.5px #fff, inset 0 0 0 3.5px #d5802b; display:flex; align-items:center; justify-content:center; }
-        .logo svg { width:36px; height:36px; }
+        .logo { width:80px; height:80px; display:flex; align-items:center; justify-content:center; }
+        .logo img { width:80px; height:80px; object-fit:contain; }
         .title { text-align:center; color:#0e10b3; font-weight:800; font-size:26px; margin:4px 0 14px; }
         .info { display:grid; grid-template-columns:1.7fr 1fr; gap:8px 30px; margin-bottom:14px; font-size:15px; font-weight:600; padding:0 6px; }
         .info .row { display:grid; grid-template-columns:100px 10px 1fr; align-items:baseline; }
@@ -146,9 +146,8 @@ export default function InvoicePrintPage() {
           <div className="company-name">{company1}<br />{company2}</div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <div className="logo">
-              <svg viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg">
-                <path d="M14 0 L2 20 L10 20 L8 36 L22 14 L13 14 L16 0 Z" fill="#232d62" stroke="#232d62" strokeWidth="0.5" strokeLinejoin="round" />
-              </svg>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icons/logo.png`} alt="الشعار" />
             </div>
           </div>
           <div />
