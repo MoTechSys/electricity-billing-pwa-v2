@@ -12,11 +12,15 @@ model User {
   fullName     String
   username     String    @unique
   passwordHash String
-  role         String    @default("clerk") // admin, clerk, accountant
+  role         String    @default("clerk") // admin, clerk
   isActive     Boolean   @default(true)
+  email        String    @default("")
+  phone        String    @default("")
+  avatarColor  String    @default("#1e40af")
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   invoices     Invoice[] @relation("IssuedBy")
+  subscribers  Subscriber[] @relation("CreatedBy")
   auditLogs    AuditLog[]
 }
 
@@ -31,9 +35,13 @@ model Subscriber {
   phone            String    @default("")
   status           String    @default("active") // active, inactive
   notes            String    @default("")
+  createdById      String?
+  createdBy        User?     @relation("CreatedBy", fields: [createdById], references: [id])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   invoices         Invoice[]
+
+  @@index([createdById])
 }
 
 model Invoice {
@@ -66,6 +74,7 @@ model Invoice {
   updatedAt        DateTime @updatedAt
 
   @@unique([subscriberId, periodFrom, periodTo])
+  @@index([issuedById])
 }
 
 model AuditLog {

@@ -11,13 +11,37 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const [totalSubscribers, activeSubscribers, totalInvoices, issuedInvoices, draftInvoices] = await Promise.all([
-    prisma.subscriber.count(),
-    prisma.subscriber.count({ where: { status: 'active' } }),
-    prisma.invoice.count(),
-    prisma.invoice.count({ where: { status: 'issued' } }),
-    prisma.invoice.count({ where: { status: 'draft' } }),
+  // Data isolation: clerk counts only own data; admin counts all
+  const isAdmin = user.role === 'admin';
+  const subWhere = isAdmin ? {} : { createdById: user.id };
+  const invWhere = isAdmin ? {} : { issuedById: user.id };
+
+  const [totalSubscribers, activeSubscribers, totalInvoices, issuedInvoices, draftInvoices, recentInvoices] = await Promise.all([
+    prisma.subscriber.count({ where: subWhere }),
+    prisma.subscriber.count({ where: { ...subWhere, status: 'active' } }),
+    prisma.invoice.count({ where: invWhere }),
+    prisma.invoice.count({ where: { ...invWhere, status: 'issued' } }),
+    prisma.invoice.count({ where: { ...invWhere, status: 'draft' } }),
+    prisma.invoice.findMany({ where: invWhere, orderBy: { createdAt: 'desc' }, take: 30, select: { netDue: true, createdAt: true, status: true } }),
   ]);
+
+  // Build a simple last-7-buckets chart of invoice totals
+  const chartData = (() => {
+    const buckets: { label: string; total: number; count: number }[] = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(now.getDate() - i);
+      const key = `${d.getMonth() + 1}/${d.getDate()}`;
+      buckets.push({ label: key, total: 0, count: 0 });
+    }
+    recentInvoices.forEach(inv => {
+      const d = new Date(inv.createdAt);
+      const key = `${d.getMonth() + 1}/${d.getDate()}`;
+      const b = buckets.find(x => x.label === key);
+      if (b) { b.total += inv.netDue; b.count += 1; }
+    });
+    return buckets;
+  })();
 
   const stats = [
     { label: 'إجمالي المشتركين', value: totalSubscribers, color: 'bg-blue-500', Icon: IconUsers },

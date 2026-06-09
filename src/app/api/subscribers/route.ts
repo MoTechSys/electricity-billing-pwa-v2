@@ -14,7 +14,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
 
     const where: Record<string, unknown> = {};
-    
+
+    // Data isolation: clerk sees only their own subscribers; admin sees all
+    if (user.role !== 'admin') {
+      where.createdById = user.id;
+    }
+
     if (search) {
       where.OR = [
         { subscriberName: { contains: search } },
@@ -77,6 +82,7 @@ export async function POST(request: NextRequest) {
         locationName: locationName || '',
         phone: phone || '',
         notes: notes || '',
+        createdById: user.id,
       },
     });
 

@@ -17,6 +17,11 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = {};
 
+    // Data isolation: clerk sees only their own issued invoices; admin sees all
+    if (user.role !== 'admin') {
+      where.issuedById = user.id;
+    }
+
     if (search) {
       where.OR = [
         { invoiceNumber: { contains: search } },
