@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { db, genId } from '@/lib/db';
 
 export default function NewSubscriberForm() {
   const router = useRouter();
@@ -28,21 +29,34 @@ export default function NewSubscriberForm() {
     setError('');
 
     try {
-      const res = await fetch('/billing/api/subscribers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'حدث خطأ');
+      if (!form.subscriberNumber || !form.subscriberName || !form.meterNumber) {
+        setError('يرجى تعبئة الحقول الأساسية');
         return;
       }
+      // uniqueness checks (local)
+      const dupNum = await db.subscribers.where('subscriberNumber').equals(form.subscriberNumber).first();
+      if (dupNum) { setError('رقم المشترك موجود مسبقاً'); return; }
+      const dupMeter = await db.subscribers.where('meterNumber').equals(form.meterNumber).first();
+      if (dupMeter) { setError('رقم العداد موجود مسبقاً'); return; }
 
+      const now = new Date().toISOString();
+      await db.subscribers.add({
+        id: genId(),
+        subscriberNumber: form.subscriberNumber,
+        subscriberName: form.subscriberName,
+        meterNumber: form.meterNumber,
+        routeNumber: form.routeNumber,
+        cabinName: form.cabinName,
+        locationName: form.locationName || '',
+        phone: form.phone || '',
+        status: 'active',
+        notes: form.notes || '',
+        createdAt: now,
+        updatedAt: now,
+      });
       router.push('/subscribers');
     } catch {
-      setError('خطأ في الاتصال بالخادم');
+      setError('خطأ في حفظ البيانات محلياً');
     } finally {
       setLoading(false);
     }

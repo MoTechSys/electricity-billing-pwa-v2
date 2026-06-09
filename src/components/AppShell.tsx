@@ -5,14 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { IconHome, IconUsers, IconArchive, IconSettings, IconBolt } from '@/components/Icons';
 
 
-interface User {
-  id: string;
-  fullName: string;
-  username: string;
-  role: string;
-}
-
-export default function AppShell({ children, user }: { children: React.ReactNode; user: User }) {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -24,12 +17,6 @@ export default function AppShell({ children, user }: { children: React.ReactNode
     { href: '/settings', label: 'الإعدادات', icon: '⚙️' },
   ];
 
-  const handleLogout = async () => {
-    await fetch('/billing/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    localStorage.removeItem('auth-token');
-    window.location.href = '/billing/login';
-  };
-
   return (
     <div className="min-h-screen flex w-full max-w-full overflow-x-hidden">
       {/* Sidebar — desktop only (mobile uses bottom nav) */}
@@ -39,7 +26,7 @@ export default function AppShell({ children, user }: { children: React.ReactNode
             <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-lg">⚡</div>
             <div>
               <h2 className="font-bold text-sm">نظام فواتير الكهرباء</h2>
-              <p className="text-blue-200 text-xs">{user.fullName}</p>
+              <p className="text-blue-200 text-xs">Motech</p>
             </div>
           </div>
         </div>
@@ -61,15 +48,6 @@ export default function AppShell({ children, user }: { children: React.ReactNode
           ))}
         </nav>
 
-        <div className="absolute bottom-4 left-4 right-4">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-200 hover:bg-red-900/30 transition"
-          >
-            <span className="text-lg">🚪</span>
-            <span>تسجيل الخروج</span>
-          </button>
-        </div>
       </aside>
 
       {/* Main content */}
@@ -80,9 +58,7 @@ export default function AppShell({ children, user }: { children: React.ReactNode
             <span className="text-xl">⚡</span>
             <span className="text-sm">فواتير الكهرباء</span>
           </div>
-          <div className="text-sm text-gray-500">
-            {user.role === 'admin' ? 'مدير النظام' : 'موظف الفوترة'}
-          </div>
+          <div className="text-sm text-gray-500">نظام الفواتير</div>
         </header>
 
         <div className="p-4 lg:p-6 has-bottom-nav">

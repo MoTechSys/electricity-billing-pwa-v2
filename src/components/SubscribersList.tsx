@@ -1,18 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-
-interface Subscriber {
-  id: string;
-  subscriberNumber: string;
-  subscriberName: string;
-  meterNumber: string;
-  routeNumber: string;
-  cabinName: string;
-  status: string;
-  phone: string;
-}
+import { db, Subscriber } from '@/lib/db';
 
 export default function SubscribersClient() {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
@@ -20,34 +10,32 @@ export default function SubscribersClient() {
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
-  useEffect(() => {
-    fetchSubscribers();
-  }, [search]);
-
-  const fetchSubscribers = async () => {
+  const fetchSubscribers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/billing/api/subscribers?search=${encodeURIComponent(search)}`);
-      const data = await res.json();
-      if (data.subscribers) {
-        setSubscribers(data.subscribers);
-        setTotal(data.total);
-      }
+      const all = await db.subscribers.orderBy('createdAt').reverse().toArray();
+      const q = search.trim().toLowerCase();
+      const filtered = q
+        ? all.filter(s =>
+            s.subscriberName.toLowerCase().includes(q) ||
+            s.subscriberNumber.toLowerCase().includes(q) ||
+            s.meterNumber.toLowerCase().includes(q))
+        : all;
+      setSubscribers(filtered);
+      setTotal(filtered.length);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
+
+  useEffect(() => { fetchSubscribers(); }, [fetchSubscribers]);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     try {
-      await fetch(`/billing/api/subscribers/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      await db.subscribers.update(id, { status: newStatus, updatedAt: new Date().toISOString() });
       fetchSubscribers();
     } catch (err) {
       console.error(err);

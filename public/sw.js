@@ -1,11 +1,11 @@
-const CACHE_NAME = 'electricity-billing-v3-billing';
-const OFFLINE_URL = '/billing/offline.html';
+const CACHE_NAME = 'electricity-billing-local-v4';
+const OFFLINE_URL = '/offline.html';
 
 const STATIC_ASSETS = [
-  '/billing/manifest.json',
-  '/billing/icons/icon-192.png',
-  '/billing/icons/icon-512.png',
-  '/billing/offline.html',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/offline.html',
 ];
 
 self.addEventListener('install', (event) => {
@@ -40,10 +40,10 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   // Skip API requests entirely - never cache them
-  if (url.pathname.startsWith('/billing/api/')) return;
+  if (url.pathname.startsWith('/api/')) return;
 
   // Skip auth-related pages - never cache login/dashboard
-  if (url.pathname === '/billing/login' || url.pathname === '/billing/dashboard' || url.pathname === '/billing') return;
+  if (url.pathname === '/dashboard' || url.pathname === '/') return;
 
   // Network-first strategy for page navigations
   if (request.mode === 'navigate') {
@@ -59,7 +59,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Cache-first strategy for static assets only
-  if (url.pathname.startsWith('/billing/icons/') || url.pathname === '/billing/manifest.json' || url.pathname.startsWith('/billing/_next/static/')) {
+  if (url.pathname.startsWith('/icons/') || url.pathname === '/manifest.json' || url.pathname.startsWith('/_next/static/')) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;

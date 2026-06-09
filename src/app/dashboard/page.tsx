@@ -1,82 +1,86 @@
-import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+'use client';
+
+import { useEffect, useState } from 'react';
 import AppShell from '@/components/AppShell';
-import Link from 'next/link';
+import { db } from '@/lib/db';
 import { IconUsers, IconUserCheck, IconDoc, IconClipboard, IconEdit } from '@/components/Icons';
 
-export const dynamic = 'force-dynamic';
+export default function DashboardPage() {
+  const [stats, setStats] = useState({ subs: 0, active: 0, invoices: 0, issued: 0, draft: 0, revenue: 0 });
+  const [chart, setChart] = useState<{ label: string; total: number }[]>([]);
 
-export default async function DashboardPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
+  useEffect(() => {
+    (async () => {
+      const subs = await db.subscribers.toArray();
+      const invoices = await db.invoices.toArray();
+      const active = subs.filter(s => s.status === 'active').length;
+      const issued = invoices.filter(i => i.status === 'issued');
+      const draft = invoices.filter(i => i.status === 'draft').length;
+      const revenue = issued.reduce((sum, i) => sum + (i.netDue || 0), 0);
+      setStats({ subs: subs.length, active, invoices: invoices.length, issued: issued.length, draft, revenue });
 
-  // Data isolation: clerk counts only own data; admin counts all
-  const isAdmin = user.role === 'admin';
-  const subWhere = isAdmin ? {} : { createdById: user.id };
-  const invWhere = isAdmin ? {} : { issuedById: user.id };
+      // last 7 days buckets
+      const buckets: { label: string; total: number }[] = [];
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now); d.setDate(now.getDate() - i);
+        buckets.push({ label: `${d.getMonth() + 1}/${d.getDate()}`, total: 0 });
+      }
+      invoices.forEach(inv => {
+        const d = new Date(inv.createdAt);
+        const key = `${d.getMonth() + 1}/${d.getDate()}`;
+        const b = buckets.find(x => x.label === key);
+        if (b) b.total += inv.netDue || 0;
+      });
+      setChart(buckets);
+    })();
+  }, []);
 
-  const [totalSubscribers, activeSubscribers, totalInvoices, issuedInvoices, draftInvoices, recentInvoices] = await Promise.all([
-    prisma.subscriber.count({ where: subWhere }),
-    prisma.subscriber.count({ where: { ...subWhere, status: 'active' } }),
-    prisma.invoice.count({ where: invWhere }),
-    prisma.invoice.count({ where: { ...invWhere, status: 'issued' } }),
-    prisma.invoice.count({ where: { ...invWhere, status: 'draft' } }),
-    prisma.invoice.findMany({ where: invWhere, orderBy: { createdAt: 'desc' }, take: 30, select: { netDue: true, createdAt: true, status: true } }),
-  ]);
-
-  // Build a simple last-7-buckets chart of invoice totals
-  const chartData = (() => {
-    const buckets: { label: string; total: number; count: number }[] = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(now.getDate() - i);
-      const key = `${d.getMonth() + 1}/${d.getDate()}`;
-      buckets.push({ label: key, total: 0, count: 0 });
-    }
-    recentInvoices.forEach(inv => {
-      const d = new Date(inv.createdAt);
-      const key = `${d.getMonth() + 1}/${d.getDate()}`;
-      const b = buckets.find(x => x.label === key);
-      if (b) { b.total += inv.netDue; b.count += 1; }
-    });
-    return buckets;
-  })();
-
-  const stats = [
-    { label: 'إجمالي المشتركين', value: totalSubscribers, color: 'bg-blue-500', Icon: IconUsers },
-    { label: 'المشتركون النشطون', value: activeSubscribers, color: 'bg-green-500', Icon: IconUserCheck },
-    { label: 'إجمالي الفواتير', value: totalInvoices, color: 'bg-purple-500', Icon: IconDoc },
-    { label: 'فواتير صادرة', value: issuedInvoices, color: 'bg-orange-500', Icon: IconClipboard },
-    { label: 'مسودات', value: draftInvoices, color: 'bg-yellow-500', Icon: IconEdit },
+  const cards = [
+    { label: 'إجمالي المشتركين', value: stats.subs, color: 'bg-blue-500', Icon: IconUsers },
+    { label: 'المشتركون النشطون', value: stats.active, color: 'bg-green-500', Icon: IconUserCheck },
+    { label: 'إجمالي الفواتير', value: stats.invoices, color: 'bg-purple-500', Icon: IconDoc },
+    { label: 'فواتير صادرة', value: stats.issued, color: 'bg-orange-500', Icon: IconClipboard },
+    { label: 'مسودات', value: stats.draft, color: 'bg-yellow-500', Icon: IconEdit },
+    { label: 'إجمالي المستحقات', value: Math.round(stats.revenue).toLocaleString('en-US'), color: 'bg-emerald-600', Icon: IconClipboard },
   ];
 
-  return (
-    <AppShell user={user}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-extrabold text-gray-800">لوحة التحكم</h1>
-          <Link
-            href="/invoices/new"
-            className="btn-luxe btn-gold text-sm"
-          >
-            + إصدار فاتورة جديدة
-          </Link>
-        </div>
+  const maxТotal = Math.max(1, ...chart.map(c => c.total));
 
-        {/* Stats Cards — 2x2 square grid on mobile */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          {stats.map((stat, i) => (
-            <div key={stat.label} className={i === stats.length - 1 && stats.length % 2 === 1 ? 'card-luxe flex flex-col items-center justify-center text-center p-4 col-span-2 lg:col-span-1 lg:[aspect-ratio:auto]' : 'card-luxe stat-square'}>
-              <span className={`${stat.color} text-white w-12 h-12 flex items-center justify-center rounded-2xl shadow-md mb-2`}>
-                <stat.Icon className="w-6 h-6" />
+  return (
+    <AppShell>
+      <div className="space-y-6 has-bottom-nav">
+        <h1 className="text-xl sm:text-2xl font-extrabold text-gray-800">لوحة التحكم</h1>
+
+        {/* Stats — 3x2 compact grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {cards.map((c) => (
+            <div key={c.label} className="card-luxe flex flex-col items-center justify-center text-center p-3">
+              <span className={`${c.color} text-white w-10 h-10 flex items-center justify-center rounded-2xl shadow-md mb-1.5`}>
+                <c.Icon className="w-5 h-5" />
               </span>
-              <span className="text-2xl font-extrabold text-gray-800 leading-none">{stat.value}</span>
-              <p className="text-xs sm:text-sm text-gray-600 font-semibold leading-tight mt-1">{stat.label}</p>
+              <span className="text-lg font-extrabold text-gray-800 leading-none" dir="ltr">{c.value}</span>
+              <p className="text-[11px] sm:text-xs text-gray-600 font-semibold leading-tight mt-1">{c.label}</p>
             </div>
           ))}
         </div>
 
+        {/* Chart */}
+        <div className="card-luxe p-4">
+          <h2 className="text-sm font-bold text-gray-700 mb-3">المستحقات — آخر 7 أيام</h2>
+          <div className="flex items-end justify-between gap-2 h-32">
+            {chart.map((c, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center justify-end h-full">
+                <div
+                  className="w-full rounded-t-lg bg-gradient-to-t from-blue-600 to-blue-400"
+                  style={{ height: `${Math.max(4, (c.total / maxТotal) * 100)}%` }}
+                  title={c.total.toLocaleString()}
+                />
+                <span className="text-[10px] text-gray-500 mt-1" dir="ltr">{c.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </AppShell>
   );

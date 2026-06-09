@@ -2,10 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 
+const BP = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 export const metadata: Metadata = {
   title: "نظام فواتير الكهرباء",
   description: "نظام إدارة فواتير استهلاك الكهرباء - تطبيق ويب تقدمي PWA",
-  manifest: "/billing/manifest.json",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -29,8 +31,8 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <head>
-        <link rel="icon" href="/billing/icons/icon-192.png" />
-        <link rel="apple-touch-icon" href="/billing/icons/icon-192.png" />
+        <link rel="icon" href={`${BP}/icons/icon-192.png`} />
+        <link rel="apple-touch-icon" href={`${BP}/icons/icon-192.png`} />
       </head>
       <body className="bg-gray-50 text-gray-900 antialiased overflow-x-hidden">
         <ServiceWorkerRegistration />

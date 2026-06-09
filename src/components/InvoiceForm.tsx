@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { db, genId, getSettings } from '@/lib/db';
+import { calculateInvoice, generateInvoiceNumber } from '@/lib/invoice-utils';
 
 interface Subscriber {
   id: string;
@@ -51,72 +53,69 @@ export default function InvoiceForm() {
 
   const [calc, setCalc] = useState<CalcResult | null>(null);
 
-  // Load subscribers for search
+  const [currency, setCurrency] = useState('ريال');
+
+  // Load subscribers for search (local DB)
   useEffect(() => {
     const fetchSubs = async () => {
-      const res = await fetch(`/billing/api/subscribers?search=${encodeURIComponent(search)}&limit=20`);
-      const data = await res.json();
-      if (data.subscribers) setSubscribers(data.subscribers);
+      const all = await db.subscribers.orderBy('createdAt').reverse().toArray();
+      const q = search.trim().toLowerCase();
+      const filtered = q
+        ? all.filter(s => s.subscriberName.toLowerCase().includes(q) || s.subscriberNumber.toLowerCase().includes(q) || s.meterNumber.toLowerCase().includes(q))
+        : all;
+      setSubscribers(filtered.slice(0, 20));
     };
     fetchSubs();
   }, [search]);
 
-  // Fetch subscriber details + auto-fill previous reading from last invoice
+  // helper: fetch last invoice reading for a subscriber from local DB
+  const fillPrevReading = useCallback(async (subId: string) => {
+    const invs = await db.invoices.where('subscriberId').equals(subId).reverse().sortBy('createdAt');
+    if (invs.length > 0) {
+      const lastReading = invs[invs.length - 1] ? invs[0].currentReading : invs[0].currentReading;
+      setForm(prev => ({ ...prev, previousReading: String(invs[0].currentReading) }));
+      setLastReadingNote(`تم جلب القراءة السابقة (${invs[0].currentReading}) تلقائياً من آخر فاتورة`);
+      void lastReading;
+    } else {
+      setLastReadingNote('لا توجد فواتير سابقة — أدخل القراءة السابقة يدوياً');
+    }
+  }, []);
+
+  // Select subscriber + auto-fill previous reading
   const selectSubscriber = useCallback(async (sub: Subscriber) => {
     setSelectedSub(sub);
     setShowDropdown(false);
     setSearch('');
     setLastReadingNote('');
-    try {
-      const res = await fetch(`/billing/api/subscribers/${sub.id}`);
-      const data = await res.json();
-      const invoices = data.subscriber?.invoices || [];
-      if (invoices.length > 0) {
-        const last = invoices[0];
-        const lastReading = last.currentReading;
-        setForm(prev => ({ ...prev, previousReading: String(lastReading) }));
-        setLastReadingNote(`تم جلب القراءة السابقة (${lastReading}) تلقائياً من آخر فاتورة`);
-      } else {
-        setLastReadingNote('لا توجد فواتير سابقة — أدخل القراءة السابقة يدوياً');
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+    await fillPrevReading(sub.id);
+  }, [fillPrevReading]);
 
   // Preselect subscriber
   useEffect(() => {
     if (preselectedId) {
       const fetchSub = async () => {
-        const res = await fetch(`/billing/api/subscribers/${preselectedId}`);
-        const data = await res.json();
-        if (data.subscriber) {
-          setSelectedSub(data.subscriber);
-          const invoices = data.subscriber?.invoices || [];
-          if (invoices.length > 0) {
-            setForm(prev => ({ ...prev, previousReading: String(invoices[0].currentReading) }));
-            setLastReadingNote(`تم جلب القراءة السابقة (${invoices[0].currentReading}) تلقائياً`);
-          }
+        const sub = await db.subscribers.get(preselectedId);
+        if (sub) {
+          setSelectedSub(sub);
+          await fillPrevReading(sub.id);
         }
       };
       fetchSub();
     }
-  }, [preselectedId]);
+  }, [preselectedId, fillPrevReading]);
 
-  // Load default unit price from settings
+  // Load default unit price + currency from settings (local)
   useEffect(() => {
-    const fetchSettings = async () => {
-      const res = await fetch('/billing/api/settings');
-      const data = await res.json();
-      if (data.settings?.default_unit_price) {
-        setForm(prev => ({ ...prev, unitPrice: data.settings.default_unit_price }));
-      }
+    const load = async () => {
+      const s = await getSettings();
+      if (s.default_unit_price) setForm(prev => ({ ...prev, unitPrice: s.default_unit_price }));
+      if (s.currency) setCurrency(s.currency);
     };
-    fetchSettings();
+    load();
   }, []);
 
-  // Auto-calculate whenever inputs change
-  const doCalculate = useCallback(async () => {
+  // Auto-calculate locally (no server)
+  const doCalculate = useCallback(() => {
     const prev = parseFloat(form.previousReading) || 0;
     const curr = parseFloat(form.currentReading) || 0;
     const price = parseFloat(form.unitPrice) || 0;
@@ -125,28 +124,19 @@ export default function InvoiceForm() {
     const paid = parseFloat(form.paidDuringPeriod) || 0;
 
     if (curr >= prev && price > 0) {
-      try {
-        const res = await fetch('/billing/api/invoices/calculate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            previousReading: prev,
-            currentReading: curr,
-            unitPrice: price,
-            servicesAmount: services,
-            arrearsAmount: arrears,
-            paidDuringPeriod: paid,
-          }),
-        });
-        const data = await res.json();
-        setCalc(data);
-      } catch {
-        // Silent fail on calc
-      }
+      const r = calculateInvoice({
+        previousReading: prev,
+        currentReading: curr,
+        unitPrice: price,
+        servicesAmount: services,
+        arrearsAmount: arrears,
+        paidDuringPeriod: paid,
+      });
+      setCalc(r);
     } else {
       setCalc(null);
     }
-  }, [form.previousReading, form.currentReading, form.unitPrice, form.servicesAmount, form.arrearsAmount, form.paidDuringPeriod]);
+  }, [form.previousReading, form.currentReading, form.unitPrice, form.servicesAmount, form.arrearsAmount, form.paidDuringPeriod, currency]);
 
   useEffect(() => {
     const timer = setTimeout(doCalculate, 300);
@@ -167,35 +157,47 @@ export default function InvoiceForm() {
     setSuccess('');
 
     try {
-      const res = await fetch('/billing/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscriberId: selectedSub.id,
-          cycleNumber: form.cycleNumber,
-          periodFrom: form.periodFrom.replace(/-/g, '/'),
-          periodTo: form.periodTo.replace(/-/g, '/'),
-          previousReading: parseFloat(form.previousReading),
-          currentReading: parseFloat(form.currentReading),
-          unitPrice: parseFloat(form.unitPrice),
-          servicesAmount: parseFloat(form.servicesAmount) || 0,
-          arrearsAmount: parseFloat(form.arrearsAmount) || 0,
-          paidDuringPeriod: parseFloat(form.paidDuringPeriod) || 0,
-          notes: form.notes,
-          statusAction,
-        }),
+      const prev = parseFloat(form.previousReading);
+      const curr = parseFloat(form.currentReading);
+      const price = parseFloat(form.unitPrice);
+      const services = parseFloat(form.servicesAmount) || 0;
+      const arrears = parseFloat(form.arrearsAmount) || 0;
+      const paid = parseFloat(form.paidDuringPeriod) || 0;
+      if (curr < prev) { setError('القراءة الحالية أقل من السابقة'); return; }
+
+      const r = calculateInvoice({ previousReading: prev, currentReading: curr, unitPrice: price, servicesAmount: services, arrearsAmount: arrears, paidDuringPeriod: paid });
+      const now = new Date().toISOString();
+      const id = genId();
+      await db.invoices.add({
+        id,
+        invoiceNumber: generateInvoiceNumber(),
+        cycleNumber: form.cycleNumber || '',
+        subscriberId: selectedSub.id,
+        periodFrom: form.periodFrom.replace(/-/g, '/'),
+        periodTo: form.periodTo.replace(/-/g, '/'),
+        previousReading: prev,
+        currentReading: curr,
+        consumptionKwh: r.consumptionKwh,
+        unitPrice: price,
+        baseValue: r.baseValue,
+        servicesAmount: services,
+        arrearsAmount: arrears,
+        paidDuringPeriod: paid,
+        grossAmount: r.grossAmount,
+        netDue: r.netDue,
+        netDueWords: r.netDueWords,
+        currency,
+        status: statusAction === 'issue' ? 'issued' : 'draft',
+        notes: form.notes || '',
+        issuedAt: statusAction === 'issue' ? now : null,
+        createdAt: now,
+        updatedAt: now,
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'حدث خطأ');
-        return;
-      }
-
       setSuccess(statusAction === 'issue' ? 'تم إصدار الفاتورة بنجاح!' : 'تم حفظ المسودة بنجاح!');
-      setCreatedInvoiceId(data.invoice.id);
+      setCreatedInvoiceId(id);
     } catch {
-      setError('خطأ في الاتصال بالخادم');
+      setError('خطأ في حفظ الفاتورة محلياً');
     } finally {
       setLoading(false);
     }
@@ -351,10 +353,10 @@ export default function InvoiceForm() {
           <div>{success}</div>
           {createdInvoiceId && (
             <div className="flex gap-3 mt-3">
-              <a href={`/billing/api/invoices/${createdInvoiceId}/pdf`} target="_blank" rel="noopener noreferrer"
+              <button onClick={() => router.push(`/invoices/${createdInvoiceId}/print`)}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-green-700">
-                📥 تنزيل PDF
-              </a>
+                📥 عرض / طباعة PDF
+              </button>
               <button onClick={() => { setSuccess(''); setCreatedInvoiceId(''); setSelectedSub(null); setForm({ ...form, cycleNumber: '', previousReading: '', currentReading: '', servicesAmount: '0', arrearsAmount: '0', paidDuringPeriod: '0', notes: '' }); setCalc(null); }}
                 className="btn-luxe text-sm">
                 فاتورة جديدة

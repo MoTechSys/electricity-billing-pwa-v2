@@ -5,8 +5,9 @@ import { useEffect } from 'react';
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
+      const bp = process.env.NEXT_PUBLIC_BASE_PATH || '';
       navigator.serviceWorker
-        .register('/billing/sw.js', { scope: '/billing/' })
+        .register(`${bp}/sw.js`, { scope: `${bp}/` })
         .then((registration) => {
           console.log('SW registered:', registration.scope);
         })

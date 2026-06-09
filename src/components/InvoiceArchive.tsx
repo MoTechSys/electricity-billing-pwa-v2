@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { db } from '@/lib/db';
 
-interface Invoice {
+interface Row {
   id: string;
   invoiceNumber: string;
   cycleNumber?: string;
@@ -13,43 +15,41 @@ interface Invoice {
   currency: string;
   status: string;
   createdAt: string;
-  subscriber: {
-    subscriberNumber: string;
-    subscriberName: string;
-    meterNumber: string;
-  };
-  issuedBy?: { fullName: string } | null;
+  subscriber: { subscriberNumber: string; subscriberName: string; meterNumber: string };
 }
 
 export default function InvoiceArchive() {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const router = useRouter();
+  const [invoices, setInvoices] = useState<Row[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
 
-  useEffect(() => {
-    fetchInvoices();
-  }, [search, statusFilter]);
-
-  const fetchInvoices = async () => {
+  const fetchInvoices = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (statusFilter) params.set('status', statusFilter);
-      const res = await fetch(`/billing/api/invoices?${params.toString()}`);
-      const data = await res.json();
-      if (data.invoices) {
-        setInvoices(data.invoices);
-        setTotal(data.total);
-      }
+      const all = await db.invoices.orderBy('createdAt').reverse().toArray();
+      const subs = await db.subscribers.toArray();
+      const subMap = new Map(subs.map(s => [s.id, s]));
+      const q = search.trim().toLowerCase();
+      const rows: Row[] = all
+        .filter(inv => !statusFilter || inv.status === statusFilter)
+        .map(inv => {
+          const s = subMap.get(inv.subscriberId);
+          return { ...inv, subscriber: { subscriberNumber: s?.subscriberNumber || '', subscriberName: s?.subscriberName || 'محذوف', meterNumber: s?.meterNumber || '' } };
+        })
+        .filter(r => !q || r.invoiceNumber.toLowerCase().includes(q) || r.subscriber.subscriberName.toLowerCase().includes(q) || r.subscriber.subscriberNumber.toLowerCase().includes(q));
+      setInvoices(rows);
+      setTotal(rows.length);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter]);
+
+  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
   const statusLabels: Record<string, { text: string; cls: string }> = {
     issued: { text: 'صادرة', cls: 'bg-green-100 text-green-700' },
@@ -119,14 +119,12 @@ export default function InvoiceArchive() {
                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${st.cls}`}>{st.text}</span>
                       </td>
                       <td className="p-3 text-sm">
-                        <a
-                          href={`/billing/api/invoices/${inv.id}/pdf`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => router.push(`/invoices/${inv.id}/print`)}
                           className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-100 inline-block"
                         >
-                          📥 PDF
-                        </a>
+                          📥 عرض/طباعة
+                        </button>
                       </td>
                     </tr>
                   );

@@ -1,23 +1,12 @@
 import type { NextConfig } from "next";
 
+// Local Caddy preview serves under /billing; Vercel serves at root.
+// Build locally with: NEXT_PUBLIC_BASE_PATH=/billing npm run build
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+
 const nextConfig: NextConfig = {
-  basePath: "/billing",
-  assetPrefix: "/billing",
-  // Ensure dynamic routes are not overly cached
-  experimental: {
-    // Disable static generation for auth-dependent pages
-  },
-  // Allow all hosts for sandbox environment
-  async headers() {
-    return [
-      {
-        source: '/api/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
-        ],
-      },
-    ];
-  },
+  // Standalone PWA. No backend. DB lives on-device (IndexedDB via Dexie).
+  ...(basePath ? { basePath, assetPrefix: basePath } : {}),
 };
 
 export default nextConfig;
