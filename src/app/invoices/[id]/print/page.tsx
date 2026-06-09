@@ -69,23 +69,6 @@ export default function InvoicePrintPage() {
     return pdf.output('blob');
   }
 
-  async function handleSavePdf() {
-    try {
-      setBusy('pdf');
-      const blob = await buildPdfBlob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = fileName;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 2000);
-    } catch (e) {
-      alert('تعذّر إنشاء الـ PDF. حاول مرة أخرى.');
-      console.error(e);
-    } finally {
-      setBusy('');
-    }
-  }
-
   async function handleShare() {
     try {
       setBusy('share');
@@ -153,7 +136,7 @@ export default function InvoicePrintPage() {
       `}</style>
 
       <div className="toolbar">
-        <button className="btn-print" onClick={handleSavePdf} disabled={busy !== ''}>{busy === 'pdf' ? '... جاري الحفظ' : '💾 حفظ PDF'}</button>
+        <button className="btn-print" onClick={() => window.print()} disabled={busy !== ''}>🖨️ طباعة / حفظ PDF</button>
         <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري التحضير' : '📤 مشاركة'}</button>
         <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
       </div>
