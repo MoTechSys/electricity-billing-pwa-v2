@@ -92,7 +92,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-luxe w-full"
             >
               {loading ? 'جاري الدخول...' : 'تسجيل الدخول'}
             </button>

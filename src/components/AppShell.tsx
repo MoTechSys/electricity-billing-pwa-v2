@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { IconHome, IconUsers, IconArchive, IconSettings, IconBolt } from '@/components/Icons';
+
 
 interface User {
   id: string;
@@ -14,7 +15,6 @@ interface User {
 export default function AppShell({ children, user }: { children: React.ReactNode; user: User }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navItems = [
     { href: '/dashboard', label: 'لوحة التحكم', icon: '📊' },
@@ -32,13 +32,8 @@ export default function AppShell({ children, user }: { children: React.ReactNode
 
   return (
     <div className="min-h-screen flex w-full max-w-full overflow-x-hidden">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
-
-      {/* Sidebar */}
-      <aside className={`fixed md:static inset-y-0 right-0 z-50 w-64 max-w-[80vw] shrink-0 bg-gradient-to-b from-blue-900 to-indigo-900 text-white transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+      {/* Sidebar — desktop only (mobile uses bottom nav) */}
+      <aside className="hidden md:flex md:flex-col md:static inset-y-0 right-0 z-50 w-64 shrink-0 bg-gradient-to-b from-blue-900 to-indigo-900 text-white">
         <div className="p-4 border-b border-blue-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-lg">⚡</div>
@@ -54,7 +49,6 @@ export default function AppShell({ children, user }: { children: React.ReactNode
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => setSidebarOpen(false)}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${
                 pathname.startsWith(item.href)
                   ? 'bg-blue-600 text-white shadow-lg'
@@ -82,23 +76,42 @@ export default function AppShell({ children, user }: { children: React.ReactNode
       <main className="flex-1 min-w-0 min-h-screen w-full">
         {/* Top bar */}
         <header className="bg-white shadow-sm border-b p-4 flex items-center justify-between no-print">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden p-2 hover:bg-gray-100 rounded-lg"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+          <div className="md:hidden flex items-center gap-2 font-extrabold text-gray-800">
+            <span className="text-xl">⚡</span>
+            <span className="text-sm">فواتير الكهرباء</span>
+          </div>
           <div className="text-sm text-gray-500">
             {user.role === 'admin' ? 'مدير النظام' : 'موظف الفوترة'}
           </div>
         </header>
 
-        <div className="p-4 lg:p-6">
+        <div className="p-4 lg:p-6 has-bottom-nav">
           {children}
         </div>
       </main>
+
+      {/* Floating bottom nav — mobile only */}
+      <nav className="bottom-nav md:hidden">
+        <Link href="/dashboard" className={`nav-item ${pathname.startsWith('/dashboard') ? 'active' : ''}`}>
+          <IconHome className="nav-icon w-5 h-5" />
+          <span>الرئيسية</span>
+        </Link>
+        <Link href="/subscribers" className={`nav-item ${pathname.startsWith('/subscribers') ? 'active' : ''}`}>
+          <IconUsers className="nav-icon w-5 h-5" />
+          <span>المشتركون</span>
+        </Link>
+        <div className="nav-center">
+          <Link href="/invoices/new" className="fab" aria-label="إصدار فاتورة"><IconBolt className="w-6 h-6" /></Link>
+        </div>
+        <Link href="/invoices/archive" className={`nav-item ${pathname.startsWith('/invoices/archive') ? 'active' : ''}`}>
+          <IconArchive className="nav-icon w-5 h-5" />
+          <span>الأرشيف</span>
+        </Link>
+        <Link href="/settings" className={`nav-item ${pathname.startsWith('/settings') ? 'active' : ''}`}>
+          <IconSettings className="nav-icon w-5 h-5" />
+          <span>الإعدادات</span>
+        </Link>
+      </nav>
     </div>
   );
 }

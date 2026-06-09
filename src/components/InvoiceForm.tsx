@@ -310,7 +310,7 @@ export default function InvoiceForm() {
                 📥 تنزيل PDF
               </a>
               <button onClick={() => { setSuccess(''); setCreatedInvoiceId(''); setSelectedSub(null); setForm({ ...form, cycleNumber: '', previousReading: '', currentReading: '', servicesAmount: '0', arrearsAmount: '0', paidDuringPeriod: '0', notes: '' }); setCalc(null); }}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">
+                className="btn-luxe text-sm">
                 فاتورة جديدة
               </button>
               <button onClick={() => router.push('/invoices/archive')}
@@ -326,7 +326,7 @@ export default function InvoiceForm() {
       {!success && (
         <div className="flex flex-wrap gap-3">
           <button onClick={() => handleSubmit('issue')} disabled={loading || !selectedSub || !calc}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition disabled:opacity-50 text-sm">
+            className="btn-luxe btn-gold text-sm">
             {loading ? 'جاري الإصدار...' : '📋 إصدار الفاتورة'}
           </button>
           <button onClick={() => handleSubmit('draft')} disabled={loading || !selectedSub || !calc}

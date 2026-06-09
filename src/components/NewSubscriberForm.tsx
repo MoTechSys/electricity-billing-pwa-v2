@@ -100,7 +100,7 @@ export default function NewSubscriberForm() {
           <button
             type="submit"
             disabled={loading}
-            className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition disabled:opacity-50 text-sm"
+            className="btn-luxe text-sm"
           >
             {loading ? 'جاري الحفظ...' : 'حفظ المشترك'}
           </button>

@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import AppShell from '@/components/AppShell';
 import Link from 'next/link';
+import { IconUsers, IconUserCheck, IconDoc, IconClipboard, IconEdit, IconUserPlus, IconArchive } from '@/components/Icons';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,55 +26,53 @@ export default async function DashboardPage() {
   });
 
   const stats = [
-    { label: 'إجمالي المشتركين', value: totalSubscribers, color: 'bg-blue-500', icon: '👥' },
-    { label: 'المشتركون النشطون', value: activeSubscribers, color: 'bg-green-500', icon: '✅' },
-    { label: 'إجمالي الفواتير', value: totalInvoices, color: 'bg-purple-500', icon: '📄' },
-    { label: 'فواتير صادرة', value: issuedInvoices, color: 'bg-orange-500', icon: '📋' },
-    { label: 'مسودات', value: draftInvoices, color: 'bg-yellow-500', icon: '📝' },
+    { label: 'إجمالي المشتركين', value: totalSubscribers, color: 'bg-blue-500', Icon: IconUsers },
+    { label: 'المشتركون النشطون', value: activeSubscribers, color: 'bg-green-500', Icon: IconUserCheck },
+    { label: 'إجمالي الفواتير', value: totalInvoices, color: 'bg-purple-500', Icon: IconDoc },
+    { label: 'فواتير صادرة', value: issuedInvoices, color: 'bg-orange-500', Icon: IconClipboard },
+    { label: 'مسودات', value: draftInvoices, color: 'bg-yellow-500', Icon: IconEdit },
   ];
 
   return (
     <AppShell user={user}>
       <div className="space-y-6">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">لوحة التحكم</h1>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-gray-800">لوحة التحكم</h1>
           <Link
             href="/invoices/new"
-            className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition text-sm"
+            className="btn-luxe btn-gold text-sm"
           >
             + إصدار فاتورة جديدة
           </Link>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          {stats.map((stat) => (
-            <div key={stat.label} className="bg-white rounded-xl shadow-sm border p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">{stat.icon}</span>
-                <span className={`${stat.color} text-white text-xs px-2 py-0.5 rounded-full`}>
-                  {stat.value}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
+        {/* Stats Cards — 2x2 square grid on mobile */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+          {stats.map((stat, i) => (
+            <div key={stat.label} className={i === stats.length - 1 && stats.length % 2 === 1 ? 'card-luxe flex flex-col items-center justify-center text-center p-4 col-span-2 lg:col-span-1 lg:[aspect-ratio:auto]' : 'card-luxe stat-square'}>
+              <span className={`${stat.color} text-white w-12 h-12 flex items-center justify-center rounded-2xl shadow-md mb-2`}>
+                <stat.Icon className="w-6 h-6" />
+              </span>
+              <span className="text-2xl font-extrabold text-gray-800 leading-none">{stat.value}</span>
+              <p className="text-xs sm:text-sm text-gray-600 font-semibold leading-tight mt-1">{stat.label}</p>
             </div>
           ))}
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link href="/subscribers/new" className="bg-white border rounded-xl p-5 hover:shadow-md transition group">
-            <span className="text-3xl">➕</span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Link href="/subscribers/new" className="card-luxe p-5 group">
+            <span className="inline-flex w-12 h-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><IconUserPlus className="w-6 h-6" /></span>
             <h3 className="text-lg font-bold mt-3 text-gray-800 group-hover:text-blue-600">إضافة مشترك</h3>
             <p className="text-sm text-gray-500 mt-1">تسجيل مشترك جديد في النظام</p>
           </Link>
-          <Link href="/invoices/new" className="bg-white border rounded-xl p-5 hover:shadow-md transition group">
-            <span className="text-3xl">📝</span>
+          <Link href="/invoices/new" className="card-luxe p-5 group">
+            <span className="inline-flex w-12 h-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600"><IconEdit className="w-6 h-6" /></span>
             <h3 className="text-lg font-bold mt-3 text-gray-800 group-hover:text-blue-600">إصدار فاتورة</h3>
             <p className="text-sm text-gray-500 mt-1">إنشاء فاتورة استهلاك كهرباء</p>
           </Link>
-          <Link href="/invoices/archive" className="bg-white border rounded-xl p-5 hover:shadow-md transition group">
-            <span className="text-3xl">📁</span>
+          <Link href="/invoices/archive" className="card-luxe p-5 group">
+            <span className="inline-flex w-12 h-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600"><IconArchive className="w-6 h-6" /></span>
             <h3 className="text-lg font-bold mt-3 text-gray-800 group-hover:text-blue-600">أرشيف الفواتير</h3>
             <p className="text-sm text-gray-500 mt-1">البحث وعرض الفواتير السابقة</p>
           </Link>

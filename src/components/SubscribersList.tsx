@@ -60,7 +60,7 @@ export default function SubscribersClient() {
         <h1 className="text-2xl font-bold text-gray-800">المشتركون ({total})</h1>
         <Link
           href="/subscribers/new"
-          className="bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition text-sm"
+          className="btn-luxe text-sm"
         >
           + إضافة مشترك
         </Link>
