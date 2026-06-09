@@ -64,6 +64,24 @@ export default function SubscribersClient() {
     }
   };
 
+  const deleteSubscriber = async (id: string, name: string) => {
+    const n = await db.invoices.where('subscriberId').equals(id).count();
+    const msg = n > 0
+      ? `سيتم حذف المشترك «${name}» و ${n} فاتورة مرتبطة به. متأكد؟`
+      : `حذف المشترك «${name}»؟`;
+    if (!confirm(msg)) return;
+    try {
+      await db.transaction('rw', db.subscribers, db.invoices, async () => {
+        await db.invoices.where('subscriberId').equals(id).delete();
+        await db.subscribers.delete(id);
+      });
+      fetchSubscribers();
+    } catch (err) {
+      console.error(err);
+      alert('تعذّر الحذف');
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -148,6 +166,14 @@ export default function SubscribersClient() {
                             ) : (
                               <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/></svg>تفعيل</>
                             )}
+                          </button>
+                          <div className="border-t my-1" />
+                          <button
+                            onClick={() => { setMenuId(null); deleteSubscriber(sub.id, sub.subscriberName); }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            حذف
                           </button>
                         </div>
                       )}

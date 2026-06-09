@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/db';
 
@@ -25,6 +25,17 @@ export default function InvoiceArchive() {
   const [statusFilter, setStatusFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const menuWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuId) return;
+    const onDown = (e: MouseEvent) => { if (menuWrapRef.current && !menuWrapRef.current.contains(e.target as Node)) setMenuId(null); };
+    const close = () => setMenuId(null);
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', close, true);
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('scroll', close, true); };
+  }, [menuId]);
 
   const fetchInvoices = useCallback(async () => {
     setLoading(true);
@@ -50,6 +61,17 @@ export default function InvoiceArchive() {
   }, [search, statusFilter]);
 
   useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
+
+  const deleteInvoice = async (id: string, num: string) => {
+    if (!confirm(`حذف الفاتورة رقم ${num}؟`)) return;
+    try {
+      await db.invoices.delete(id);
+      fetchInvoices();
+    } catch (err) {
+      console.error(err);
+      alert('تعذّر الحذف');
+    }
+  };
 
   const statusLabels: Record<string, { text: string; cls: string }> = {
     issued: { text: 'صادرة', cls: 'bg-green-100 text-green-700' },
@@ -118,14 +140,25 @@ export default function InvoiceArchive() {
                       <td className="p-3 text-sm">
                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${st.cls}`}>{st.text}</span>
                       </td>
-                      <td className="p-3 text-sm text-center">
+                      <td className="p-3 text-sm text-center relative">
                         <button
-                          onClick={() => router.push(`/invoices/${inv.id}/print`)}
-                          aria-label="عرض / طباعة"
-                          className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" strokeLinejoin="round"/></svg>
-                        </button>
+                          onClick={() => setMenuId(menuId === inv.id ? null : inv.id)}
+                          aria-label="إجراءات"
+                          className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl leading-none"
+                        >⋮</button>
+                        {menuId === inv.id && (
+                          <div ref={menuWrapRef} className="absolute left-2 top-12 z-20 w-44 bg-white rounded-xl shadow-xl border py-1 text-right">
+                            <button onClick={() => { setMenuId(null); router.push(`/invoices/${inv.id}/print`); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-blue-600 hover:bg-blue-50">
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" strokeLinejoin="round"/></svg>
+                              عرض / طباعة
+                            </button>
+                            <div className="border-t my-1" />
+                            <button onClick={() => { setMenuId(null); deleteInvoice(inv.id, inv.invoiceNumber); }} className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50">
+                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              حذف
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
