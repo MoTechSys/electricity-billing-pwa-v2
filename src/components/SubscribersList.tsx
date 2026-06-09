@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { db, Subscriber } from '@/lib/db';
 
 export default function SubscribersClient() {
@@ -9,6 +10,21 @@ export default function SubscribersClient() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const router = useRouter();
+  const menuWrapRef = useRef<HTMLDivElement>(null);
+
+  // close the actions menu on outside click / scroll
+  useEffect(() => {
+    if (!menuId) return;
+    const close = () => setMenuId(null);
+    const onDown = (e: MouseEvent) => {
+      if (menuWrapRef.current && !menuWrapRef.current.contains(e.target as Node)) setMenuId(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('scroll', close, true);
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('scroll', close, true); };
+  }, [menuId]);
 
   const fetchSubscribers = useCallback(async () => {
     setLoading(true);
@@ -66,16 +82,16 @@ export default function SubscribersClient() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[600px]">
+          <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">رقم المشترك</th>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">الاسم</th>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">رقم العداد</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">خط السير</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">الكبينة</th>
+                <th className="text-right p-3 text-sm font-semibold text-gray-600 hidden sm:table-cell">خط السير</th>
+                <th className="text-right p-3 text-sm font-semibold text-gray-600 hidden sm:table-cell">الكبينة</th>
                 <th className="text-right p-3 text-sm font-semibold text-gray-600">الحالة</th>
-                <th className="text-right p-3 text-sm font-semibold text-gray-600">إجراءات</th>
+                <th className="text-center p-3 text-sm font-semibold text-gray-600 w-12"></th>
               </tr>
             </thead>
             <tbody>
@@ -89,8 +105,8 @@ export default function SubscribersClient() {
                     <td className="p-3 text-sm font-mono">{sub.subscriberNumber}</td>
                     <td className="p-3 text-sm font-medium">{sub.subscriberName}</td>
                     <td className="p-3 text-sm font-mono">{sub.meterNumber}</td>
-                    <td className="p-3 text-sm">{sub.routeNumber}</td>
-                    <td className="p-3 text-sm">{sub.cabinName}</td>
+                    <td className="p-3 text-sm hidden sm:table-cell">{sub.routeNumber}</td>
+                    <td className="p-3 text-sm hidden sm:table-cell">{sub.cabinName}</td>
                     <td className="p-3 text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                         sub.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
@@ -98,25 +114,37 @@ export default function SubscribersClient() {
                         {sub.status === 'active' ? 'نشط' : 'معطل'}
                       </span>
                     </td>
-                    <td className="p-3 text-sm">
-                      <div className="flex gap-2">
-                        <Link
-                          href={`/invoices/new?subscriberId=${sub.id}`}
-                          className="bg-blue-50 text-blue-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-blue-100"
-                        >
-                          إصدار فاتورة
-                        </Link>
-                        <button
-                          onClick={() => toggleStatus(sub.id, sub.status)}
-                          className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                            sub.status === 'active'
-                              ? 'bg-red-50 text-red-600 hover:bg-red-100'
-                              : 'bg-green-50 text-green-600 hover:bg-green-100'
-                          }`}
-                        >
-                          {sub.status === 'active' ? 'تعطيل' : 'تفعيل'}
-                        </button>
-                      </div>
+                    <td className="p-3 text-sm text-center relative">
+                      <button
+                        onClick={() => setMenuId(menuId === sub.id ? null : sub.id)}
+                        aria-label="إجراءات"
+                        className="w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl leading-none"
+                      >
+                        ⋮
+                      </button>
+                      {menuId === sub.id && (
+                        <div ref={menuWrapRef} className="absolute left-2 top-12 z-20 w-44 bg-white rounded-xl shadow-xl border py-1 text-right">
+                          <button
+                            onClick={() => { setMenuId(null); router.push(`/invoices/new?subscriberId=${sub.id}`); }}
+                            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-blue-600 hover:bg-blue-50"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2 3 14h7v8l11-12h-8z" strokeLinejoin="round"/></svg>
+                            إصدار فاتورة
+                          </button>
+                          <button
+                            onClick={() => { setMenuId(null); toggleStatus(sub.id, sub.status); }}
+                            className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium ${
+                              sub.status === 'active' ? 'text-red-600 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'
+                            }`}
+                          >
+                            {sub.status === 'active' ? (
+                              <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/></svg>تعطيل</>
+                            ) : (
+                              <><svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round"/></svg>تفعيل</>
+                            )}
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
