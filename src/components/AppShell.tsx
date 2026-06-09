@@ -27,7 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <img src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icons/logo.png`} alt="الشعار" className="w-10 h-10 object-contain" />
             <div>
               <h2 className="font-bold text-sm">نظام فواتير الكهرباء</h2>
-              <p className="text-blue-200 text-xs">Al-Abbasi</p>
+              <p className="text-blue-200 text-xs">العباسي سوفت</p>
             </div>
           </div>
         </div>

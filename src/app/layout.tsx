@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import ServiceWorkerRegistration from "@/components/ServiceWorkerRegistration";
 import OnboardingGate from "@/components/OnboardingGate";
+import SplashScreen from "@/components/SplashScreen";
 
 const BP = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
       </head>
       <body className="bg-gray-50 text-gray-900 antialiased overflow-x-hidden">
         <ServiceWorkerRegistration />
+        <SplashScreen />
         <OnboardingGate>{children}</OnboardingGate>
       </body>
     </html>
