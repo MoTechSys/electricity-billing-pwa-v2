@@ -42,31 +42,55 @@ export default function InvoicePrintPage() {
   const invDisplay = invoice.invoiceNumber.replace(/^INV-\d{4}-\d{2}-/, '') || invoice.invoiceNumber;
   const fileName = `فاتورة-${invDisplay}.pdf`;
 
-  // Render the invoice node to a single-page A4-landscape PDF (jsPDF + html-to-image).
+  // Render the invoice to a single full A4-landscape PDF page.
+  // We clone the invoice off-screen at a FIXED A4-landscape pixel box
+  // (1123x794 @96dpi) so RTL/scroll/clip on the live page can't distort it.
   async function buildPdfBlob(): Promise<Blob> {
-    const node = invoiceRef.current!;
+    const src = invoiceRef.current!;
     const [{ toPng }, jspdfMod] = await Promise.all([
       import('html-to-image'),
       import('jspdf'),
     ]);
     const JsPDF = jspdfMod.jsPDF;
-    const dataUrl = await toPng(node, {
-      pixelRatio: 2,
-      backgroundColor: '#ffffff',
-      width: node.offsetWidth,
-      height: node.offsetHeight,
-    });
-    const pdf = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const pageW = pdf.internal.pageSize.getWidth();   // 297
-    const pageH = pdf.internal.pageSize.getHeight();  // 210
-    // fit image within the page preserving aspect ratio
-    const imgRatio = node.offsetWidth / node.offsetHeight;
-    let w = pageW, h = pageW / imgRatio;
-    if (h > pageH) { h = pageH; w = pageH * imgRatio; }
-    const x = (pageW - w) / 2;
-    const y = (pageH - h) / 2;
-    pdf.addImage(dataUrl, 'PNG', x, y, w, h);
-    return pdf.output('blob');
+
+    const A4W = 1123; // 297mm @96dpi
+    const A4H = 794;  // 210mm @96dpi
+
+    const clone = src.cloneNode(true) as HTMLElement;
+    clone.style.transform = 'none';
+    clone.style.margin = '0';
+    clone.style.width = A4W + 'px';
+    clone.style.height = A4H + 'px';
+    clone.style.minHeight = A4H + 'px';
+    clone.style.borderRadius = '0';
+    clone.style.boxSizing = 'border-box';
+
+    const holder = document.createElement('div');
+    holder.style.position = 'fixed';
+    holder.style.top = '0';
+    holder.style.left = '-100000px'; // off-screen
+    holder.style.width = A4W + 'px';
+    holder.style.height = A4H + 'px';
+    holder.style.background = '#ffffff';
+    holder.setAttribute('dir', 'rtl');
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
+
+    try {
+      const dataUrl = await toPng(clone, {
+        backgroundColor: '#ffffff',
+        width: A4W,
+        height: A4H,
+        pixelRatio: 2,
+        cacheBust: true,
+      });
+      const pdf = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      // fill the entire A4 landscape page (sizes match by construction)
+      pdf.addImage(dataUrl, 'PNG', 0, 0, 297, 210);
+      return pdf.output('blob');
+    } finally {
+      document.body.removeChild(holder);
+    }
   }
 
   async function handleShare() {
