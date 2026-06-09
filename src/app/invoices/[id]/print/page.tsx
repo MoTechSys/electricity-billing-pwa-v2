@@ -100,20 +100,22 @@ export default function InvoicePrintPage() {
   // jsPDF/html-to-image/jsPDF.html() all rasterize Arabic to an image, so the
   // browser's own print engine is the only thing that yields true Arabic text.
   function buildStandaloneHtml(banner: string): string {
+    const BP = process.env.NEXT_PUBLIC_BASE_PATH || '';
     const inv = invoiceRef.current!;
     const invoiceHtml = inv.outerHTML;
     return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>فاتورة ${invDisplay}</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
+  @font-face{font-family:'IBM Plex Sans Arabic';src:url('${BP}/fonts/IBMPlexSansArabic-Regular.ttf') format('truetype');font-weight:400 600;}
+  @font-face{font-family:'IBM Plex Sans Arabic';src:url('${BP}/fonts/IBMPlexSansArabic-Bold.ttf') format('truetype');font-weight:700 900;}
   * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-  html,body{ margin:0; padding:0; font-family:'Cairo','Tahoma',sans-serif; background:#fff; }
+  html,body{ margin:0; padding:0; font-family:'IBM Plex Sans Arabic','Tahoma',sans-serif; background:#fff; }
   ${INVOICE_CSS}
   .invoice{ transform:none !important; border:none !important; border-radius:0 !important; margin:0 auto !important; }
   @page { size: 297mm 210mm; margin: 0; }
-  .pbar{ position:sticky; top:0; z-index:10; background:#0f1941; color:#fff; padding:12px; text-align:center; font-family:'Cairo',sans-serif; font-weight:700; }
-  .pbar button{ font-family:'Cairo',sans-serif; font-weight:800; border:none; border-radius:10px; padding:10px 22px; font-size:15px; cursor:pointer; background:linear-gradient(180deg,#f0d066,#d4af37,#b8941f); color:#2a2102; }
+  .pbar{ position:sticky; top:0; z-index:10; background:#0f1941; color:#fff; padding:12px; text-align:center; font-family:'IBM Plex Sans Arabic',sans-serif; font-weight:700; }
+  .pbar button{ font-family:'IBM Plex Sans Arabic',sans-serif; font-weight:800; border:none; border-radius:10px; padding:10px 22px; font-size:15px; cursor:pointer; background:linear-gradient(180deg,#f0d066,#d4af37,#b8941f); color:#2a2102; }
   @media screen { body{ background:#e8e8e8; } .invoice{ box-shadow:0 4px 24px rgba(0,0,0,.2); margin:16px auto !important; } }
   @media print { .pbar{ display:none !important; } }
 </style></head>
@@ -195,12 +197,11 @@ ${invoiceHtml}
   return (
     <div className="print-root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
-        .print-root { font-family: 'Cairo','Tahoma',sans-serif; background:#e8e8e8; min-height:100vh; padding:20px 12px; }
+        .print-root { font-family: 'IBM Plex Sans Arabic','Tahoma',sans-serif; background:#e8e8e8; min-height:100vh; padding:20px 12px; }
         /* keep background colors when printing (orange header etc.) */
         .invoice, .invoice * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
         .toolbar { max-width: 297mm; margin: 0 auto 14px; display:flex; gap:10px; justify-content:center; }
-        .toolbar button { font-family:'Cairo',sans-serif; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:14px; }
+        .toolbar button { font-family:'IBM Plex Sans Arabic',sans-serif; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:14px; }
         .btn-print { background:linear-gradient(180deg,#e7c65a,#c9a227,#a8851a); color:#2a2102; box-shadow:0 4px 12px -3px rgba(168,133,26,.6); }
         .btn-share { background:linear-gradient(180deg,#34d399,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(5,150,105,.5); }
         .btn-share:disabled { opacity:.6; cursor:default; }

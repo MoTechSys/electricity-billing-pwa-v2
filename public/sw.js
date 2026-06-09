@@ -1,4 +1,4 @@
-const CACHE_NAME = 'electricity-billing-local-v14';
+const CACHE_NAME = 'electricity-billing-local-v15';
 const OFFLINE_URL = '/offline.html';
 
 const STATIC_ASSETS = [
