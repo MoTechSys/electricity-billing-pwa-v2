@@ -11,15 +11,13 @@ import fontkit from '@pdf-lib/fontkit';
 import { convertArabic } from 'arabic-reshaper';
 import type { Invoice, Subscriber } from './db';
 
-// Proven pipeline (verified visually): apply Arabic letter shaping (presentation
-// forms) with arabic-reshaper, then — because pdf-lib draws glyphs left-to-right
-// in the given code-point order and we right-align — reverse only the numeric/
-// Latin runs so digits, dates and money read correctly inside the RTL text.
-// Arabic letters in logical order render correctly as-is; no bidi reorder needed.
+// Proven pipeline (verified visually with IBM Plex Sans Arabic, which has full
+// presentation-form coverage): apply Arabic letter shaping with arabic-reshaper
+// and right-align. With this font, Latin digits/dates/money already render in the
+// correct order — NO digit reversal and NO bidi reorder needed.
 function shape(text: string): string {
   if (!text) return '';
-  const reshaped = convertArabic(text);
-  return reshaped.replace(/[0-9][0-9.,:/\-]*[0-9]|[0-9]/g, (m) => m.split('').reverse().join(''));
+  return convertArabic(text);
 }
 
 function fmt(n: number): string {
@@ -43,8 +41,8 @@ export async function generateInvoicePdfBytes(input: InvoicePdfInput): Promise<U
   doc.registerFontkit(fontkit);
 
   const [regBytes, boldBytes] = await Promise.all([
-    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/fonts/Amiri-Regular.ttf`).then(r => r.arrayBuffer()),
-    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/fonts/Amiri-Bold.ttf`).then(r => r.arrayBuffer()),
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/fonts/IBMPlexSansArabic-Regular.ttf`).then(r => r.arrayBuffer()),
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/fonts/IBMPlexSansArabic-Bold.ttf`).then(r => r.arrayBuffer()),
   ]);
   const reg = await doc.embedFont(regBytes, { subset: false });
   const bold = await doc.embedFont(boldBytes, { subset: false });
@@ -75,12 +73,7 @@ export async function generateInvoicePdfBytes(input: InvoicePdfInput): Promise<U
     const w = font.widthOfTextAtSize(v, size);
     page.drawText(v, { x: cx - w / 2, y, size, font, color });
   }
-  // Centered PLAIN number/Latin (no reshape, no reverse) for table cells.
-  function drawCNum(text: string, cx: number, y: number, size: number, font: PDFFont, color: RGB = black) {
-    if (!text) return;
-    const w = font.widthOfTextAtSize(text, size);
-    page.drawText(text, { x: cx - w / 2, y, size, font, color });
-  }
+
 
   const company1 = settings.company_name || 'شركة العباسي';
   const company2 = settings.company_subtitle || 'لتوليد الطاقة الكهربائية';
@@ -161,7 +154,7 @@ export async function generateInvoicePdfBytes(input: InvoicePdfInput): Promise<U
     const cx = colRightX[i] - colW[i] / 2;
     page.drawRectangle({ x: colRightX[i] - colW[i], y: vTop - rowH, width: colW[i], height: rowH, borderColor: black, borderWidth: 1 });
     const isDue = i === vals.length - 1;
-    drawCNum(vals[i], cx, vTop - rowH / 2 - 5, isDue ? 13 : 11, isDue ? bold : reg, isDue ? blue : black);
+    drawC(vals[i], cx, vTop - rowH / 2 - 5, isDue ? 13 : 11, isDue ? bold : reg, isDue ? blue : black);
   }
   y = vTop - rowH - 9 * MM;
 

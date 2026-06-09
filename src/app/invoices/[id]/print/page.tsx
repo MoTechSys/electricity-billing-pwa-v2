@@ -40,7 +40,6 @@ export default function InvoicePrintPage() {
   const [subscriber, setSubscriber] = useState<Subscriber | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState<'' | 'pdf' | 'share'>('');
   const invoiceRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef<HTMLDivElement>(null);
@@ -91,34 +90,6 @@ export default function InvoicePrintPage() {
   const title = settings.invoice_title || 'فاتورة استهلاك كهرباء';
   const footerNote = settings.footer_note || 'ملاحظة: المحطة غير مسؤولة عن تسليم أي مبلغ بدون سند رسمي';
   const invDisplay = invoice.invoiceNumber.replace(/^INV-\d{4}-\d{2}-/, '') || invoice.invoiceNumber;
-
-  function buildCopyText(): string {
-    return [
-      `${company1} - ${company2}`,
-      title,
-      `رقم الفاتورة: ${invDisplay}`,
-      `رقم الدورة: ${invoice!.cycleNumber || subscriber!.routeNumber || ''}`,
-      `اسم المشترك: ${subscriber!.subscriberName}`,
-      `رقم العداد: ${subscriber!.meterNumber || ''}`,
-      `الفترة: من ${invoice!.periodFrom} حتى ${invoice!.periodTo}`,
-      `القراءة السابقة: ${fmt(invoice!.previousReading)}`,
-      `القراءة الحالية: ${fmt(invoice!.currentReading)}`,
-      `الاستهلاك: ${fmt(invoice!.consumptionKwh)}`,
-      `القيمة: ${fmt(invoice!.baseValue)}`,
-      `المبلغ المستحق: ${fmt(invoice!.netDue)}`,
-      `(${invoice!.netDueWords})`,
-    ].join('\n');
-  }
-
-  async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(buildCopyText());
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      alert('تعذّر النسخ');
-    }
-  }
 
   // Build a standalone, self-contained HTML document of the invoice.
   // Used for printing in a clean window (text stays selectable -> real text PDF,
@@ -233,7 +204,6 @@ ${invoiceHtml}
         .btn-print { background:linear-gradient(180deg,#e7c65a,#c9a227,#a8851a); color:#2a2102; box-shadow:0 4px 12px -3px rgba(168,133,26,.6); }
         .btn-share { background:linear-gradient(180deg,#34d399,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(5,150,105,.5); }
         .btn-share:disabled { opacity:.6; cursor:default; }
-        .btn-copy { background:linear-gradient(180deg,#60a5fa,#3b82f6,#2563eb); color:#fff; box-shadow:0 4px 12px -3px rgba(37,99,235,.5); }
         .btn-pdf { background:linear-gradient(180deg,#a78bfa,#8b5cf6,#7c3aed); color:#fff; box-shadow:0 4px 12px -3px rgba(124,58,237,.5); }
         .toolbar button:disabled { opacity:.6; cursor:default; }
         .btn-back { background:#fff; color:#333; border:1px solid #ddd; }
@@ -259,7 +229,6 @@ ${invoiceHtml}
         <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري' : '📤 مشاركة PDF'}</button>
         <button className="btn-pdf" onClick={handleSavePdf} disabled={busy !== ''}>{busy === 'pdf' ? '... جاري' : '💾 حفظ PDF'}</button>
         <button className="btn-print" onClick={handlePrint} disabled={busy !== ''}>🖨️ طباعة</button>
-        <button className="btn-copy" onClick={handleCopy} disabled={busy !== ''}>{copied ? '✅ تم' : '📋 نسخ'}</button>
         <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
       </div>
 
