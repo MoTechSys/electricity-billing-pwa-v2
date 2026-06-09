@@ -16,6 +16,7 @@ export default function InvoicePrintPage() {
   const [subscriber, setSubscriber] = useState<Subscriber | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -39,6 +40,61 @@ export default function InvoicePrintPage() {
   const footerNote = settings.footer_note || 'ملاحظة: المحطة غير مسؤولة عن تسليم أي مبلغ بدون سند رسمي';
   const invDisplay = invoice.invoiceNumber.replace(/^INV-\d{4}-\d{2}-/, '') || invoice.invoiceNumber;
 
+  function buildShareText(): string {
+    const lines = [
+      `*${company1}* - ${company2}`,
+      `*${title}*`,
+      `رقم الفاتورة: ${invDisplay}`,
+      `المشترك: ${subscriber!.subscriberName}`,
+      `الفترة: من ${invoice!.periodFrom} حتى ${invoice!.periodTo}`,
+      `القراءة السابقة: ${fmt(invoice!.previousReading)}`,
+      `القراءة الحالية: ${fmt(invoice!.currentReading)}`,
+      `الاستهلاك: ${fmt(invoice!.consumptionKwh)} ك.و.س`,
+      `المبلغ المستحق: ${fmt(invoice!.netDue)}`,
+      `(${invoice!.netDueWords})`,
+    ];
+    return lines.join('\n');
+  }
+
+  async function handleShare() {
+    const text = buildShareText();
+    try {
+      setSharing(true);
+      // Try sharing an image of the invoice (best experience), fall back to text.
+      let shared = false;
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (typeof (nav as Navigator).share === 'function') {
+        try {
+          const node = document.querySelector('.invoice') as HTMLElement | null;
+          // Lazy-load html-to-image only when sharing an image
+          if (node && nav.canShare) {
+            const mod = await import('html-to-image');
+            const dataUrl = await mod.toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff' });
+            const blob = await (await fetch(dataUrl)).blob();
+            const file = new File([blob], `فاتورة-${invDisplay}.png`, { type: 'image/png' });
+            if (nav.canShare({ files: [file] })) {
+              await (nav as Navigator).share({ files: [file], title: `فاتورة ${invDisplay}`, text });
+              shared = true;
+            }
+          }
+          if (!shared) {
+            await (nav as Navigator).share({ title: `فاتورة ${invDisplay}`, text });
+            shared = true;
+          }
+        } catch {
+          /* user cancelled or share failed -> fall through */
+        }
+      }
+      if (!shared) {
+        // Desktop / no Web Share: open WhatsApp with the text.
+        const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(wa, '_blank');
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <div className="print-root">
       <style>{`
@@ -47,6 +103,8 @@ export default function InvoicePrintPage() {
         .toolbar { max-width: 297mm; margin: 0 auto 14px; display:flex; gap:10px; justify-content:center; }
         .toolbar button { font-family:'Cairo',sans-serif; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:14px; }
         .btn-print { background:linear-gradient(180deg,#e7c65a,#c9a227,#a8851a); color:#2a2102; box-shadow:0 4px 12px -3px rgba(168,133,26,.6); }
+        .btn-share { background:linear-gradient(180deg,#34d399,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(5,150,105,.5); }
+        .btn-share:disabled { opacity:.6; cursor:default; }
         .btn-back { background:#fff; color:#333; border:1px solid #ddd; }
         .invoice { width:297mm; min-height:200mm; max-width:100%; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:14mm 18mm; }
         @media (max-width:1180px){ .invoice{ width:100%; padding:18px 16px; } }
@@ -79,6 +137,7 @@ export default function InvoicePrintPage() {
 
       <div className="toolbar">
         <button className="btn-print" onClick={() => window.print()}>🖨️ طباعة / حفظ PDF</button>
+        <button className="btn-share" onClick={handleShare} disabled={sharing}>{sharing ? '... جاري التحضير' : '📤 مشاركة'}</button>
         <button className="btn-back" onClick={() => router.back()}>رجوع</button>
       </div>
 
