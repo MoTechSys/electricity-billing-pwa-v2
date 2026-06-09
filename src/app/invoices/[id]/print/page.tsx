@@ -8,6 +8,30 @@ function fmt(n: number): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: true });
 }
 
+// Shared invoice layout CSS (used both on-screen and in the standalone print window).
+const INVOICE_CSS = `
+  .invoice { width:297mm; height:210mm; box-sizing:border-box; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:12mm 18mm; display:flex; flex-direction:column; overflow:hidden; }
+  .header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; margin-bottom:10px; border:1px solid #000; border-radius:10px; padding:14px 22px; }
+  .company-name { text-align:right; font-weight:800; font-size:19px; line-height:1.45; }
+  .logo { width:80px; height:80px; display:flex; align-items:center; justify-content:center; }
+  .logo img { width:80px; height:80px; object-fit:contain; }
+  .title { text-align:center; color:#0e10b3; font-weight:800; font-size:26px; margin:4px 0 14px; }
+  .info { display:grid; grid-template-columns:1.7fr 1fr; gap:8px 30px; margin-bottom:14px; font-size:15px; font-weight:600; padding:0 6px; }
+  .info .row { display:grid; grid-template-columns:100px 10px 1fr; align-items:baseline; }
+  .info .label { font-weight:700; }
+  table.bill { width:100%; border-collapse:collapse; margin-bottom:10px; font-size:15px; table-layout:fixed; }
+  table.bill th, table.bill td { border:1px solid #000; padding:9px 4px; text-align:center; height:36px; word-wrap:break-word; }
+  table.bill thead th { background:#fcd5b4; font-weight:700; font-size:14px; }
+  table.bill tbody td { font-weight:600; }
+  table.bill tbody td.amount-due { color:#1f9cf0; font-weight:800; font-size:17px; }
+  .written { font-size:15px; font-weight:600; margin:10px 4px 14px; line-height:1.6; }
+  .written .lbl { font-weight:700; }
+  .footer-line { border-top:1.5px solid #000; margin-top:6px; padding-top:12px; padding-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
+  .footer-line .note { color:#0e10b3; font-weight:700; font-size:14px; }
+  .footer-line .accounts { font-weight:800; font-size:15px; }
+  .bottom-bar { border-bottom:2px solid #000; margin-top:auto; }
+`;
+
 export default function InvoicePrintPage() {
   const params = useParams();
   const router = useRouter();
@@ -150,6 +174,49 @@ export default function InvoicePrintPage() {
     }
   }
 
+  // Build a standalone, self-contained HTML document of the invoice.
+  // Used for printing in a clean window (text stays selectable -> real text PDF,
+  // not an image). Avoids the PWA shell / service-worker quirks that produced
+  // a blank print on some phones.
+  function buildStandaloneHtml(): string {
+    const inv = invoiceRef.current!;
+    const invoiceHtml = inv.outerHTML;
+    return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فاتورة ${invDisplay}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  html,body{ margin:0; padding:0; font-family:'Cairo','Tahoma',sans-serif; background:#fff; }
+  ${INVOICE_CSS}
+  /* override on-screen scaling for this print-only document */
+  .invoice{ transform:none !important; border:none !important; border-radius:0 !important; margin:0 auto !important; }
+  @page { size: 297mm 210mm; margin: 0; }
+  @media screen { body{ background:#e8e8e8; padding:16px; } .invoice{ box-shadow:0 4px 24px rgba(0,0,0,.2); } }
+</style></head>
+<body>${invoiceHtml}
+<script>
+  function go(){ window.focus(); window.print(); }
+  if (document.readyState === 'complete') { setTimeout(go, 350); }
+  else { window.addEventListener('load', function(){ setTimeout(go, 350); }); }
+  window.addEventListener('afterprint', function(){ /* keep window so mobile can save */ });
+<\/script>
+</body></html>`;
+  }
+
+  function handlePrint() {
+    const html = buildStandaloneHtml();
+    const w = window.open('', '_blank');
+    if (!w) {
+      // popup blocked -> fall back to in-page print
+      window.print();
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
   async function handleShare() {
     try {
       setBusy('share');
@@ -191,26 +258,7 @@ export default function InvoicePrintPage() {
            scaled DOWN with a CSS variable so it fits the viewport (no side-scroll). */
         .invoice-scaler { width:100%; display:flex; justify-content:center; }
         .invoice-fit { transform: scale(var(--inv-scale, 1)); transform-origin: top center; }
-        .invoice { width:297mm; height:210mm; box-sizing:border-box; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:12mm 18mm; display:flex; flex-direction:column; overflow:hidden; }
-        .header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; margin-bottom:10px; border:1px solid #000; border-radius:10px; padding:14px 22px; }
-        .company-name { text-align:right; font-weight:800; font-size:19px; line-height:1.45; }
-        .logo { width:80px; height:80px; display:flex; align-items:center; justify-content:center; }
-        .logo img { width:80px; height:80px; object-fit:contain; }
-        .title { text-align:center; color:#0e10b3; font-weight:800; font-size:26px; margin:4px 0 14px; }
-        .info { display:grid; grid-template-columns:1.7fr 1fr; gap:8px 30px; margin-bottom:14px; font-size:15px; font-weight:600; padding:0 6px; }
-        .info .row { display:grid; grid-template-columns:100px 10px 1fr; align-items:baseline; }
-        .info .label { font-weight:700; }
-        table.bill { width:100%; border-collapse:collapse; margin-bottom:10px; font-size:15px; table-layout:fixed; }
-        table.bill th, table.bill td { border:1px solid #000; padding:9px 4px; text-align:center; height:36px; word-wrap:break-word; }
-        table.bill thead th { background:#fcd5b4; font-weight:700; font-size:14px; }
-        table.bill tbody td { font-weight:600; }
-        table.bill tbody td.amount-due { color:#1f9cf0; font-weight:800; font-size:17px; }
-        .written { font-size:15px; font-weight:600; margin:10px 4px 14px; line-height:1.6; }
-        .written .lbl { font-weight:700; }
-        .footer-line { border-top:1.5px solid #000; margin-top:6px; padding-top:12px; padding-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
-        .footer-line .note { color:#0e10b3; font-weight:700; font-size:14px; }
-        .footer-line .accounts { font-weight:800; font-size:15px; }
-        .bottom-bar { border-bottom:2px solid #000; margin-top:auto; }
+        ${INVOICE_CSS}
         @media print {
           /* explicit dimensions: Chrome Android ignores the bare "landscape" keyword */
           @page { size: 297mm 210mm; margin: 0; }
@@ -225,8 +273,8 @@ export default function InvoicePrintPage() {
       `}</style>
 
       <div className="toolbar">
-        <button className="btn-print" onClick={() => window.print()} disabled={busy !== ''}>🖨️ طباعة / حفظ PDF</button>
-        <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري التحضير' : '📤 مشاركة'}</button>
+        <button className="btn-print" onClick={handlePrint} disabled={busy !== ''}>📄 حفظ PDF / طباعة</button>
+        <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري التحضير' : '📤 مشاركة (صورة)'}</button>
         <button className="btn-copy" onClick={handleCopy} disabled={busy !== ''}>{copied ? '✅ تم النسخ' : '📋 نسخ البيانات'}</button>
         <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
       </div>
