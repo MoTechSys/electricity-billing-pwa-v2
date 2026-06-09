@@ -38,7 +38,7 @@ export default function InvoiceArchive() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
-      const res = await fetch(`/api/invoices?${params.toString()}`);
+      const res = await fetch(`/billing/api/invoices?${params.toString()}`);
       const data = await res.json();
       if (data.invoices) {
         setInvoices(data.invoices);

@@ -52,7 +52,7 @@ export default function InvoiceForm() {
   // Load subscribers for search
   useEffect(() => {
     const fetchSubs = async () => {
-      const res = await fetch(`/api/subscribers?search=${encodeURIComponent(search)}&limit=20`);
+      const res = await fetch(`/billing/api/subscribers?search=${encodeURIComponent(search)}&limit=20`);
       const data = await res.json();
       if (data.subscribers) setSubscribers(data.subscribers);
     };
@@ -63,7 +63,7 @@ export default function InvoiceForm() {
   useEffect(() => {
     if (preselectedId) {
       const fetchSub = async () => {
-        const res = await fetch(`/api/subscribers/${preselectedId}`);
+        const res = await fetch(`/billing/api/subscribers/${preselectedId}`);
         const data = await res.json();
         if (data.subscriber) {
           setSelectedSub(data.subscriber);
@@ -76,7 +76,7 @@ export default function InvoiceForm() {
   // Load default unit price from settings
   useEffect(() => {
     const fetchSettings = async () => {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/billing/api/settings');
       const data = await res.json();
       if (data.settings?.default_unit_price) {
         setForm(prev => ({ ...prev, unitPrice: data.settings.default_unit_price }));
@@ -96,7 +96,7 @@ export default function InvoiceForm() {
 
     if (curr >= prev && price > 0) {
       try {
-        const res = await fetch('/api/invoices/calculate', {
+        const res = await fetch('/billing/api/invoices/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -137,7 +137,7 @@ export default function InvoiceForm() {
     setSuccess('');
 
     try {
-      const res = await fetch('/api/invoices', {
+      const res = await fetch('/billing/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

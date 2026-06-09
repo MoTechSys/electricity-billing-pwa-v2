@@ -14,7 +14,7 @@ export default function SettingsForm() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/billing/api/settings');
       const data = await res.json();
       if (data.settings) setSettings(data.settings);
     } catch (err) {
@@ -28,7 +28,7 @@ export default function SettingsForm() {
     setSaving(true);
     setMessage('');
     try {
-      const res = await fetch('/api/settings', {
+      const res = await fetch('/billing/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),

@@ -25,9 +25,9 @@ export default function AppShell({ children, user }: { children: React.ReactNode
   ];
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    await fetch('/billing/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     localStorage.removeItem('auth-token');
-    window.location.href = '/login';
+    window.location.href = '/billing/login';
   };
 
   return (

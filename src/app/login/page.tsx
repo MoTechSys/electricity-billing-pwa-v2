@@ -14,7 +14,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch('/billing/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
@@ -34,7 +34,7 @@ export default function LoginPage() {
       }
 
       // Use full page navigation to ensure cookie is sent with the server-side request
-      window.location.href = '/dashboard';
+      window.location.href = '/billing/dashboard';
     } catch {
       setError('خطأ في الاتصال بالخادم');
     } finally {

@@ -27,7 +27,7 @@ export default function SubscribersClient() {
   const fetchSubscribers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/subscribers?search=${encodeURIComponent(search)}`);
+      const res = await fetch(`/billing/api/subscribers?search=${encodeURIComponent(search)}`);
       const data = await res.json();
       if (data.subscribers) {
         setSubscribers(data.subscribers);
@@ -43,7 +43,7 @@ export default function SubscribersClient() {
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     try {
-      await fetch(`/api/subscribers/${id}`, {
+      await fetch(`/billing/api/subscribers/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
