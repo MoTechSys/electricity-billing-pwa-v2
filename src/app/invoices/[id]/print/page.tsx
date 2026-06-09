@@ -41,6 +41,7 @@ export default function InvoicePrintPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState<'' | 'pdf' | 'share'>('');
   const invoiceRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef<HTMLDivElement>(null);
   const scalerRef = useRef<HTMLDivElement>(null);
@@ -166,11 +167,58 @@ ${invoiceHtml}
   }
 
   function handlePrint() {
-    openPrintWindow('اختر الوجهة «حفظ كـ PDF» للحصول على ملف نصي');
+    openPrintWindow('للطباعة اختر «حفظ كـ PDF»');
   }
 
-  function handleShare() {
-    openPrintWindow('اختر «حفظ كـ PDF» ثم شارك الملف عبر الواتساب أو أي تطبيق');
+  // Build a REAL text PDF (selectable Arabic) with pdf-lib and return its blob.
+  async function makeTextPdfBlob(): Promise<Blob> {
+    const { generateInvoicePdfBlob } = await import('@/lib/pdf-arabic');
+    let logoPngBytes: Uint8Array | null = null;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/icons/icon-512.png`);
+      logoPngBytes = new Uint8Array(await res.arrayBuffer());
+    } catch { /* logo optional */ }
+    return generateInvoicePdfBlob({ invoice: invoice!, subscriber: subscriber!, settings, logoPngBytes });
+  }
+
+  async function handleShare() {
+    try {
+      setBusy('share');
+      const blob = await makeTextPdfBlob();
+      const file = new File([blob], `فاتورة-${invDisplay}.pdf`, { type: 'application/pdf' });
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      if (typeof nav.share === 'function' && nav.canShare && nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title: `فاتورة ${invDisplay}` });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `فاتورة-${invDisplay}.pdf`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('تعذّر إنشاء الـ PDF للمشاركة.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function handleSavePdf() {
+    try {
+      setBusy('pdf');
+      const blob = await makeTextPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `فاتورة-${invDisplay}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      console.error(e);
+      alert('تعذّر إنشاء الـ PDF.');
+    } finally {
+      setBusy('');
+    }
   }
 
   return (
@@ -186,6 +234,8 @@ ${invoiceHtml}
         .btn-share { background:linear-gradient(180deg,#34d399,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(5,150,105,.5); }
         .btn-share:disabled { opacity:.6; cursor:default; }
         .btn-copy { background:linear-gradient(180deg,#60a5fa,#3b82f6,#2563eb); color:#fff; box-shadow:0 4px 12px -3px rgba(37,99,235,.5); }
+        .btn-pdf { background:linear-gradient(180deg,#a78bfa,#8b5cf6,#7c3aed); color:#fff; box-shadow:0 4px 12px -3px rgba(124,58,237,.5); }
+        .toolbar button:disabled { opacity:.6; cursor:default; }
         .btn-back { background:#fff; color:#333; border:1px solid #ddd; }
         /* Invoice keeps its fixed A4-landscape width (297mm). On screen it is
            scaled DOWN with a CSS variable so it fits the viewport (no side-scroll). */
@@ -206,10 +256,11 @@ ${invoiceHtml}
       `}</style>
 
       <div className="toolbar">
-        <button className="btn-print" onClick={handlePrint}>📄 حفظ PDF / طباعة</button>
-        <button className="btn-share" onClick={handleShare}>📤 مشاركة PDF</button>
-        <button className="btn-copy" onClick={handleCopy}>{copied ? '✅ تم النسخ' : '📋 نسخ البيانات'}</button>
-        <button className="btn-back" onClick={() => router.back()}>رجوع</button>
+        <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري' : '📤 مشاركة PDF'}</button>
+        <button className="btn-pdf" onClick={handleSavePdf} disabled={busy !== ''}>{busy === 'pdf' ? '... جاري' : '💾 حفظ PDF'}</button>
+        <button className="btn-print" onClick={handlePrint} disabled={busy !== ''}>🖨️ طباعة</button>
+        <button className="btn-copy" onClick={handleCopy} disabled={busy !== ''}>{copied ? '✅ تم' : '📋 نسخ'}</button>
+        <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
       </div>
 
       <div className="invoice-scaler" ref={scalerRef}>
