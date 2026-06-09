@@ -258,11 +258,11 @@ export default function InvoiceForm() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">الفترة من <span className="text-red-500">*</span></label>
-            <input type="date" name="periodFrom" value={form.periodFrom} onChange={handleChange} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition outline-none text-sm" dir="ltr" />
+            <input type="date" name="periodFrom" value={form.periodFrom} onChange={handleChange} style={{ direction: 'ltr', textAlign: 'left' }} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition outline-none text-sm" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">الفترة إلى <span className="text-red-500">*</span></label>
-            <input type="date" name="periodTo" value={form.periodTo} onChange={handleChange} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition outline-none text-sm" dir="ltr" />
+            <input type="date" name="periodTo" value={form.periodTo} onChange={handleChange} style={{ direction: 'ltr', textAlign: 'left' }} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition outline-none text-sm" />
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">القراءة السابقة <span className="text-red-500">*</span></label>
