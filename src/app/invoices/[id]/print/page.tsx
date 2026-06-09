@@ -18,6 +18,32 @@ export default function InvoicePrintPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<'' | 'pdf' | 'share'>('');
   const invoiceRef = useRef<HTMLDivElement>(null);
+  const fitRef = useRef<HTMLDivElement>(null);
+  const scalerRef = useRef<HTMLDivElement>(null);
+
+  // Scale the fixed-width A4 invoice DOWN to fit the screen width (no side scroll).
+  useEffect(() => {
+    if (loading) return;
+    function fit() {
+      const scaler = scalerRef.current;
+      const inv = invoiceRef.current;
+      const fitEl = fitRef.current;
+      if (!scaler || !inv || !fitEl) return;
+      const natW = inv.offsetWidth;   // ~1123px (297mm)
+      const natH = inv.offsetHeight;  // ~794px (210mm)
+      if (!natW) return;
+      const avail = scaler.clientWidth;
+      const scale = Math.min(1, avail / natW);
+      fitEl.style.setProperty('--inv-scale', String(scale));
+      // reserve the scaled height so there is no huge empty gap below
+      fitEl.style.height = natH * scale + 'px';
+    }
+    fit();
+    const t1 = setTimeout(fit, 250);   // after fonts/layout settle
+    const t2 = setTimeout(fit, 800);
+    window.addEventListener('resize', fit);
+    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener('resize', fit); };
+  }, [loading, invoice, subscriber]);
 
   useEffect(() => {
     (async () => {
@@ -47,7 +73,7 @@ export default function InvoicePrintPage() {
   // (1123x794 @96dpi) so RTL/scroll/clip on the live page can't distort it.
   async function buildPdfBlob(): Promise<Blob> {
     const src = invoiceRef.current!;
-    const [{ toPng }, jspdfMod] = await Promise.all([
+    const [{ toJpeg }, jspdfMod] = await Promise.all([
       import('html-to-image'),
       import('jspdf'),
     ]);
@@ -63,6 +89,7 @@ export default function InvoicePrintPage() {
     clone.style.height = A4H + 'px';
     clone.style.minHeight = A4H + 'px';
     clone.style.borderRadius = '0';
+    clone.style.border = 'none';
     clone.style.boxSizing = 'border-box';
 
     const holder = document.createElement('div');
@@ -77,16 +104,17 @@ export default function InvoicePrintPage() {
     document.body.appendChild(holder);
 
     try {
-      const dataUrl = await toPng(clone, {
+      // JPEG @ quality 0.85 + pixelRatio 1.5 keeps the file small (<1MB) and crisp.
+      const dataUrl = await toJpeg(clone, {
         backgroundColor: '#ffffff',
         width: A4W,
         height: A4H,
-        pixelRatio: 2,
+        pixelRatio: 1.5,
+        quality: 0.85,
         cacheBust: true,
       });
-      const pdf = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      // fill the entire A4 landscape page (sizes match by construction)
-      pdf.addImage(dataUrl, 'PNG', 0, 0, 297, 210);
+      const pdf = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true });
+      pdf.addImage(dataUrl, 'JPEG', 0, 0, 297, 210);
       return pdf.output('blob');
     } finally {
       document.body.removeChild(holder);
@@ -121,16 +149,19 @@ export default function InvoicePrintPage() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap');
         .print-root { font-family: 'Cairo','Tahoma',sans-serif; background:#e8e8e8; min-height:100vh; padding:20px 12px; }
+        /* keep background colors when printing (orange header etc.) */
+        .invoice, .invoice * { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
         .toolbar { max-width: 297mm; margin: 0 auto 14px; display:flex; gap:10px; justify-content:center; }
         .toolbar button { font-family:'Cairo',sans-serif; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:14px; }
         .btn-print { background:linear-gradient(180deg,#e7c65a,#c9a227,#a8851a); color:#2a2102; box-shadow:0 4px 12px -3px rgba(168,133,26,.6); }
         .btn-share { background:linear-gradient(180deg,#34d399,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(5,150,105,.5); }
         .btn-share:disabled { opacity:.6; cursor:default; }
         .btn-back { background:#fff; color:#333; border:1px solid #ddd; }
-        /* Invoice ALWAYS keeps its A4-landscape proportions (297mm wide).
-           On small screens the wrapper scrolls horizontally; layout never reflows/squishes. */
-        .invoice-scaler { width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; padding-bottom:8px; }
-        .invoice { width:297mm; min-height:200mm; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:14mm 18mm; }
+        /* Invoice keeps its fixed A4-landscape width (297mm). On screen it is
+           scaled DOWN with a CSS variable so it fits the viewport (no side-scroll). */
+        .invoice-scaler { width:100%; display:flex; justify-content:center; }
+        .invoice-fit { transform: scale(var(--inv-scale, 1)); transform-origin: top center; }
+        .invoice { width:297mm; height:210mm; box-sizing:border-box; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:12mm 18mm; display:flex; flex-direction:column; overflow:hidden; }
         .header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; margin-bottom:10px; border:1px solid #000; border-radius:10px; padding:14px 22px; }
         .company-name { text-align:right; font-weight:800; font-size:19px; line-height:1.45; }
         .logo { width:80px; height:80px; display:flex; align-items:center; justify-content:center; }
@@ -149,13 +180,16 @@ export default function InvoicePrintPage() {
         .footer-line { border-top:1.5px solid #000; margin-top:6px; padding-top:12px; padding-bottom:6px; display:flex; justify-content:space-between; align-items:center; }
         .footer-line .note { color:#0e10b3; font-weight:700; font-size:14px; }
         .footer-line .accounts { font-weight:800; font-size:15px; }
-        .bottom-bar { border-bottom:2px solid #000; margin-top:8px; }
+        .bottom-bar { border-bottom:2px solid #000; margin-top:auto; }
         @media print {
           @page { size: A4 landscape; margin: 0; }
-          .print-root { background:#fff; padding:0; }
+          html, body { margin:0 !important; padding:0 !important; }
+          .print-root { background:#fff; padding:0; min-height:0; }
           .toolbar { display:none !important; }
-          .invoice-scaler { overflow:visible !important; width:auto !important; padding:0 !important; }
-          .invoice { border:1.5px solid #000; width:297mm; min-height:200mm; margin:0; padding:14mm 18mm; border-radius:0; }
+          .invoice-scaler { display:block !important; width:auto !important; }
+          .invoice-fit { transform:none !important; }
+          /* exactly one A4 page: fixed 297x210mm, no overflow, no second page */
+          .invoice { border:none; width:297mm; height:210mm; margin:0; padding:12mm 18mm; border-radius:0; overflow:hidden; page-break-after:avoid; page-break-inside:avoid; }
         }
       `}</style>
 
@@ -165,7 +199,8 @@ export default function InvoicePrintPage() {
         <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
       </div>
 
-      <div className="invoice-scaler">
+      <div className="invoice-scaler" ref={scalerRef}>
+      <div className="invoice-fit" ref={fitRef}>
       <div className="invoice" dir="rtl" ref={invoiceRef}>
         <div className="header">
           <div className="company-name">{company1}<br />{company2}</div>
@@ -221,6 +256,7 @@ export default function InvoicePrintPage() {
           <div className="accounts">الحسابات</div>
         </div>
         <div className="bottom-bar" />
+      </div>
       </div>
       </div>
     </div>
