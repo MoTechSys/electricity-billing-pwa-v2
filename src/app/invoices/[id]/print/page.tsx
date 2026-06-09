@@ -16,33 +16,8 @@ export default function InvoicePrintPage() {
   const [subscriber, setSubscriber] = useState<Subscriber | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [sharing, setSharing] = useState(false);
-  const scalerRef = useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = useState<'' | 'pdf' | 'share'>('');
   const invoiceRef = useRef<HTMLDivElement>(null);
-
-  // Scale the fixed 297mm-wide invoice down to fit narrow screens,
-  // preserving the exact A4-landscape layout (no reflow/squish).
-  useEffect(() => {
-    function fit() {
-      const scaler = scalerRef.current;
-      const inv = invoiceRef.current;
-      if (!scaler || !inv) return;
-      // reset to measure natural size
-      inv.style.transform = 'scale(1)';
-      const natW = inv.offsetWidth;
-      const natH = inv.offsetHeight;
-      const avail = scaler.parentElement?.clientWidth || window.innerWidth;
-      const scale = Math.min(1, (avail - 4) / natW);
-      inv.style.transform = `scale(${scale})`;
-      // collapse the empty space left by the transform
-      scaler.style.width = natW * scale + 'px';
-      scaler.style.height = natH * scale + 'px';
-    }
-    fit();
-    window.addEventListener('resize', fit);
-    const t = setTimeout(fit, 300); // after fonts load
-    return () => { window.removeEventListener('resize', fit); clearTimeout(t); };
-  }, [loading, invoice, subscriber]);
 
   useEffect(() => {
     (async () => {
@@ -65,62 +40,72 @@ export default function InvoicePrintPage() {
   const title = settings.invoice_title || 'فاتورة استهلاك كهرباء';
   const footerNote = settings.footer_note || 'ملاحظة: المحطة غير مسؤولة عن تسليم أي مبلغ بدون سند رسمي';
   const invDisplay = invoice.invoiceNumber.replace(/^INV-\d{4}-\d{2}-/, '') || invoice.invoiceNumber;
+  const fileName = `فاتورة-${invDisplay}.pdf`;
 
-  function buildShareText(): string {
-    const lines = [
-      `*${company1}* - ${company2}`,
-      `*${title}*`,
-      `رقم الفاتورة: ${invDisplay}`,
-      `المشترك: ${subscriber!.subscriberName}`,
-      `الفترة: من ${invoice!.periodFrom} حتى ${invoice!.periodTo}`,
-      `القراءة السابقة: ${fmt(invoice!.previousReading)}`,
-      `القراءة الحالية: ${fmt(invoice!.currentReading)}`,
-      `الاستهلاك: ${fmt(invoice!.consumptionKwh)} ك.و.س`,
-      `المبلغ المستحق: ${fmt(invoice!.netDue)}`,
-      `(${invoice!.netDueWords})`,
-    ];
-    return lines.join('\n');
+  // Render the invoice node to a single-page A4-landscape PDF (jsPDF + html-to-image).
+  async function buildPdfBlob(): Promise<Blob> {
+    const node = invoiceRef.current!;
+    const [{ toPng }, jspdfMod] = await Promise.all([
+      import('html-to-image'),
+      import('jspdf'),
+    ]);
+    const JsPDF = jspdfMod.jsPDF;
+    const dataUrl = await toPng(node, {
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      width: node.offsetWidth,
+      height: node.offsetHeight,
+    });
+    const pdf = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();   // 297
+    const pageH = pdf.internal.pageSize.getHeight();  // 210
+    // fit image within the page preserving aspect ratio
+    const imgRatio = node.offsetWidth / node.offsetHeight;
+    let w = pageW, h = pageW / imgRatio;
+    if (h > pageH) { h = pageH; w = pageH * imgRatio; }
+    const x = (pageW - w) / 2;
+    const y = (pageH - h) / 2;
+    pdf.addImage(dataUrl, 'PNG', x, y, w, h);
+    return pdf.output('blob');
+  }
+
+  async function handleSavePdf() {
+    try {
+      setBusy('pdf');
+      const blob = await buildPdfBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      alert('تعذّر إنشاء الـ PDF. حاول مرة أخرى.');
+      console.error(e);
+    } finally {
+      setBusy('');
+    }
   }
 
   async function handleShare() {
-    const text = buildShareText();
     try {
-      setSharing(true);
-      // Try sharing an image of the invoice (best experience), fall back to text.
-      let shared = false;
+      setBusy('share');
+      const blob = await buildPdfBlob();
+      const file = new File([blob], fileName, { type: 'application/pdf' });
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-      if (typeof (nav as Navigator).share === 'function') {
-        try {
-          const node = invoiceRef.current;
-          // Lazy-load html-to-image only when sharing an image
-          if (node && nav.canShare) {
-            const mod = await import('html-to-image');
-            const prev = node.style.transform;
-            node.style.transform = 'scale(1)'; // capture at full A4 resolution
-            const dataUrl = await mod.toPng(node, { pixelRatio: 2, backgroundColor: '#ffffff', width: node.offsetWidth, height: node.offsetHeight });
-            node.style.transform = prev; // restore on-screen scale
-            const blob = await (await fetch(dataUrl)).blob();
-            const file = new File([blob], `فاتورة-${invDisplay}.png`, { type: 'image/png' });
-            if (nav.canShare({ files: [file] })) {
-              await (nav as Navigator).share({ files: [file], title: `فاتورة ${invDisplay}`, text });
-              shared = true;
-            }
-          }
-          if (!shared) {
-            await (nav as Navigator).share({ title: `فاتورة ${invDisplay}`, text });
-            shared = true;
-          }
-        } catch {
-          /* user cancelled or share failed -> fall through */
-        }
+      if (typeof nav.share === 'function' && nav.canShare && nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title: `فاتورة ${invDisplay}` });
+      } else {
+        // Desktop / no file-share support: download the PDF so the user can attach it.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
       }
-      if (!shared) {
-        // Desktop / no Web Share: open WhatsApp with the text.
-        const wa = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        window.open(wa, '_blank');
-      }
+    } catch (e) {
+      console.error(e); // user-cancel or failure -> silent
     } finally {
-      setSharing(false);
+      setBusy('');
     }
   }
 
@@ -136,9 +121,9 @@ export default function InvoicePrintPage() {
         .btn-share:disabled { opacity:.6; cursor:default; }
         .btn-back { background:#fff; color:#333; border:1px solid #ddd; }
         /* Invoice ALWAYS keeps its A4-landscape proportions (297mm wide).
-           On small screens it is scaled down to fit, never reflowed/squished. */
-        .invoice-scaler { margin:0 auto; }
-        .invoice { width:297mm; min-height:200mm; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:14mm 18mm; transform-origin:top center; }
+           On small screens the wrapper scrolls horizontally; layout never reflows/squishes. */
+        .invoice-scaler { width:100%; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; padding-bottom:8px; }
+        .invoice { width:297mm; min-height:200mm; margin:0 auto; background:#fff; border:1.5px solid #000; border-radius:14px 14px 4px 4px; padding:14mm 18mm; }
         .header { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:20px; margin-bottom:10px; border:1px solid #000; border-radius:10px; padding:14px 22px; }
         .company-name { text-align:right; font-weight:800; font-size:19px; line-height:1.45; }
         .logo { width:80px; height:80px; display:flex; align-items:center; justify-content:center; }
@@ -162,18 +147,18 @@ export default function InvoicePrintPage() {
           @page { size: A4 landscape; margin: 0; }
           .print-root { background:#fff; padding:0; }
           .toolbar { display:none !important; }
-          .invoice-scaler { transform:none !important; width:auto !important; height:auto !important; }
-          .invoice { border:1.5px solid #000; width:297mm; min-height:200mm; margin:0; padding:14mm 18mm; border-radius:0; transform:none !important; }
+          .invoice-scaler { overflow:visible !important; width:auto !important; padding:0 !important; }
+          .invoice { border:1.5px solid #000; width:297mm; min-height:200mm; margin:0; padding:14mm 18mm; border-radius:0; }
         }
       `}</style>
 
       <div className="toolbar">
-        <button className="btn-print" onClick={() => window.print()}>🖨️ طباعة / حفظ PDF</button>
-        <button className="btn-share" onClick={handleShare} disabled={sharing}>{sharing ? '... جاري التحضير' : '📤 مشاركة'}</button>
-        <button className="btn-back" onClick={() => router.back()}>رجوع</button>
+        <button className="btn-print" onClick={handleSavePdf} disabled={busy !== ''}>{busy === 'pdf' ? '... جاري الحفظ' : '💾 حفظ PDF'}</button>
+        <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري التحضير' : '📤 مشاركة'}</button>
+        <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
       </div>
 
-      <div className="invoice-scaler" ref={scalerRef}>
+      <div className="invoice-scaler">
       <div className="invoice" dir="rtl" ref={invoiceRef}>
         <div className="header">
           <div className="company-name">{company1}<br />{company2}</div>
