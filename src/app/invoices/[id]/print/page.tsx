@@ -17,6 +17,7 @@ export default function InvoicePrintPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<'' | 'pdf' | 'share'>('');
+  const [copied, setCopied] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
   const fitRef = useRef<HTMLDivElement>(null);
   const scalerRef = useRef<HTMLDivElement>(null);
@@ -121,6 +122,34 @@ export default function InvoicePrintPage() {
     }
   }
 
+  function buildCopyText(): string {
+    return [
+      `${company1} - ${company2}`,
+      title,
+      `رقم الفاتورة: ${invDisplay}`,
+      `رقم الدورة: ${invoice!.cycleNumber || subscriber!.routeNumber || ''}`,
+      `اسم المشترك: ${subscriber!.subscriberName}`,
+      `رقم العداد: ${subscriber!.meterNumber || ''}`,
+      `الفترة: من ${invoice!.periodFrom} حتى ${invoice!.periodTo}`,
+      `القراءة السابقة: ${fmt(invoice!.previousReading)}`,
+      `القراءة الحالية: ${fmt(invoice!.currentReading)}`,
+      `الاستهلاك: ${fmt(invoice!.consumptionKwh)}`,
+      `القيمة: ${fmt(invoice!.baseValue)}`,
+      `المبلغ المستحق: ${fmt(invoice!.netDue)}`,
+      `(${invoice!.netDueWords})`,
+    ].join('\n');
+  }
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(buildCopyText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      alert('تعذّر النسخ');
+    }
+  }
+
   async function handleShare() {
     try {
       setBusy('share');
@@ -156,6 +185,7 @@ export default function InvoicePrintPage() {
         .btn-print { background:linear-gradient(180deg,#e7c65a,#c9a227,#a8851a); color:#2a2102; box-shadow:0 4px 12px -3px rgba(168,133,26,.6); }
         .btn-share { background:linear-gradient(180deg,#34d399,#10b981,#059669); color:#fff; box-shadow:0 4px 12px -3px rgba(5,150,105,.5); }
         .btn-share:disabled { opacity:.6; cursor:default; }
+        .btn-copy { background:linear-gradient(180deg,#60a5fa,#3b82f6,#2563eb); color:#fff; box-shadow:0 4px 12px -3px rgba(37,99,235,.5); }
         .btn-back { background:#fff; color:#333; border:1px solid #ddd; }
         /* Invoice keeps its fixed A4-landscape width (297mm). On screen it is
            scaled DOWN with a CSS variable so it fits the viewport (no side-scroll). */
@@ -182,7 +212,8 @@ export default function InvoicePrintPage() {
         .footer-line .accounts { font-weight:800; font-size:15px; }
         .bottom-bar { border-bottom:2px solid #000; margin-top:auto; }
         @media print {
-          @page { size: A4 landscape; margin: 0; }
+          /* explicit dimensions: Chrome Android ignores the bare "landscape" keyword */
+          @page { size: 297mm 210mm; margin: 0; }
           html, body { margin:0 !important; padding:0 !important; }
           .print-root { background:#fff; padding:0; min-height:0; }
           .toolbar { display:none !important; }
@@ -196,6 +227,7 @@ export default function InvoicePrintPage() {
       <div className="toolbar">
         <button className="btn-print" onClick={() => window.print()} disabled={busy !== ''}>🖨️ طباعة / حفظ PDF</button>
         <button className="btn-share" onClick={handleShare} disabled={busy !== ''}>{busy === 'share' ? '... جاري التحضير' : '📤 مشاركة'}</button>
+        <button className="btn-copy" onClick={handleCopy} disabled={busy !== ''}>{copied ? '✅ تم النسخ' : '📋 نسخ البيانات'}</button>
         <button className="btn-back" onClick={() => router.back()} disabled={busy !== ''}>رجوع</button>
       </div>
 
