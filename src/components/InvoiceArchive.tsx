@@ -120,7 +120,7 @@ export default function InvoiceArchive() {
                       </td>
                       <td className="p-3 text-sm">
                         <a
-                          href={`/api/invoices/${inv.id}/pdf`}
+                          href={`/billing/api/invoices/${inv.id}/pdf`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-100 inline-block"
